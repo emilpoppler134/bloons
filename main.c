@@ -12,6 +12,11 @@ typedef Vector2 v2f;
 
 // Structs for the entity, state and the dynamic array
 //--------------------------------------------------------------------------------------
+typedef struct TimeInterval {
+  double lastTime;
+  double interval;
+} TimeInterval;
+
 typedef struct Entity
 {
   v2f position;
@@ -19,6 +24,7 @@ typedef struct Entity
   float speed;
   float rotation;
   int hp;
+  TimeInterval interval;
 } Entity;
 
 typedef struct dynamicEntityArray
@@ -33,11 +39,6 @@ typedef struct TurningPoint
   v2f direction;
   v2f point;
 } TurningPoint;
-
-typedef struct TimeInterval {
-  double lastTime;
-  double interval;
-} TimeInterval;
 
 typedef struct State
 {
@@ -178,8 +179,6 @@ int main()
 
   int spawnedEnemies = 0;
 
-  TimeInterval interval = InitTimeInterval(3.0);
-  TimeInterval shootingInterval = InitTimeInterval(state.shootingSpeed);
   TimeInterval enemySpawnInterval = InitTimeInterval(state.enemySpawnSpeed);
 
   TurningPoint turning_points[6] = {
@@ -229,15 +228,13 @@ int main()
           state.economy -= 100;
 
           // Create a new player
-          Entity newPlayer;
-          newPlayer.position = (v2f){mouseX, mouseY};
-          newPlayer.direction = (v2f){0, 0};
-          newPlayer.speed = 0;
-          newPlayer.rotation = 0;
-          newPlayer.hp = 100;
+          Entity player;
+          player.position = (v2f){mouseX, mouseY};
+          player.hp = 100;
+          player.interval = InitTimeInterval(state.shootingSpeed);
 
           // Push to the dynamic array
-          push(&state.players, newPlayer);
+          push(&state.players, player);
         }
       }
     }
@@ -251,14 +248,32 @@ int main()
       break;
     }
 
-    // Shooting loop
-    if (CheckTimeInterval(&shootingInterval)) {
-      if (state.enemies.count != 0) {
-        for (int i = 0; i < state.players.count; i++)
-        {
-          Entity player = state.players.data[i];
-          v2f playerCenter = {player.position.x + playerImage.width / 2, player.position.y + playerImage.height / 2};
+    // Enemy spawn loop
+    if (CheckTimeInterval(&enemySpawnInterval)) {
+      if (spawnedEnemies < 20)
+      {
+        // Createing a enemy
+        Entity enemy;
+        enemy.position = (v2f){0 - enemyImage.width, 440 - enemyImage.height / 2};
+        enemy.direction = (v2f){1, 0};
+        enemy.speed = 100.0f;
+        enemy.hp = 100;
+        push(&state.enemies, enemy);
 
+        spawnedEnemies += 1;
+      }
+    }
+
+    // Player loop
+    for (int i = 0; i < state.players.count; i++)
+    {
+      Entity *player = &state.players.data[i];
+      v2f playerCenter = {player->position.x + playerImage.width / 2, player->position.y + playerImage.height / 2};
+
+      if (CheckTimeInterval(&player->interval))
+      {
+        if (state.enemies.count != 0)
+        {
           // Find the closest enemy and get direction from player to that enemy
           float closestEnemyDistance = FLT_MAX;
           v2f closestEnemyDirection = {0, 0};
@@ -295,11 +310,10 @@ int main()
 
           // Set the direction and speed for the bullet
           Entity bullet;
-          bullet.position = (v2f){player.position.x, player.position.y};
+          bullet.position = (v2f){player->position.x, player->position.y};
           bullet.direction = lowestEnemyDirection;
           bullet.speed = 5000.0f;
           bullet.rotation = rotation;
-          bullet.hp = 0;
 
           // Push to the dynamic array
           push(&state.bullets, bullet);
@@ -307,24 +321,7 @@ int main()
       }
     }
 
-    // Enemy spawn loop
-    if (CheckTimeInterval(&enemySpawnInterval)) {
-      if (spawnedEnemies < 20)
-      {
-        // Createing a enemy
-        Entity enemy;
-        enemy.position = (v2f){0 - enemyImage.width, 440 - enemyImage.height / 2};
-        enemy.direction = (v2f){1, 0};
-        enemy.speed = 100.0f;
-        enemy.rotation = 0;
-        enemy.hp = 100;
-        push(&state.enemies, enemy);
-
-        spawnedEnemies += 1;
-      }
-    }
-
-    // Update every enemy
+    // Enemy loop
     for (int i = 0; i < state.enemies.count; i++)
     {
       Entity *enemy = &state.enemies.data[i];
@@ -355,7 +352,7 @@ int main()
       }
     }
 
-    // Update every bullet
+    // Bullet loop
     for (int i = 0; i < state.bullets.count; i++)
     {
       Entity *bullet = &state.bullets.data[i];
