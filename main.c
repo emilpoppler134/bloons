@@ -34,6 +34,11 @@ typedef struct TurningPoint
   v2f point;
 } TurningPoint;
 
+typedef struct TimeInterval {
+  double lastTime;
+  double interval;
+} TimeInterval;
+
 typedef struct State
 {
   int economy;
@@ -111,6 +116,24 @@ bool isPositionEmpty(dynamicEntityArray players, float width, float height, floa
   return true;
 }
 
+// Initialize a time interval with a specified interval
+TimeInterval InitTimeInterval(double seconds) {
+  TimeInterval interval;
+  interval.lastTime = GetTime();
+  interval.interval = seconds;
+  return interval;
+}
+
+// Check if the time interval has elapsed and reset the timer if it has
+bool CheckTimeInterval(TimeInterval *timer) {
+  double currentTime = GetTime();
+  if (currentTime - timer->lastTime >= timer->interval) {
+    timer->lastTime = currentTime;
+    return true;
+  }
+  return false;
+}
+
 
 // Main
 //--------------------------------------------------------------------------------------
@@ -154,6 +177,10 @@ int main()
   clock_t startTime = GetTime();
 
   int spawnedEnemies = 0;
+
+  TimeInterval interval = InitTimeInterval(3.0);
+  TimeInterval shootingInterval = InitTimeInterval(state.shootingSpeed);
+  TimeInterval enemySpawnInterval = InitTimeInterval(state.enemySpawnSpeed);
 
   TurningPoint turning_points[6] = {
     {
@@ -224,12 +251,8 @@ int main()
       break;
     }
 
-    // Calculate elapsed time since the start
-    double currentTime = GetTime();
-    double elapsedTime = currentTime - startTime;
-
     // Shooting loop
-    if (fmod(elapsedTime, state.shootingSpeed) < 1.0 / GetFPS()) {
+    if (CheckTimeInterval(&shootingInterval)) {
       if (state.enemies.count != 0) {
         for (int i = 0; i < state.players.count; i++)
         {
@@ -285,7 +308,7 @@ int main()
     }
 
     // Enemy spawn loop
-    if (fmod(elapsedTime, state.enemySpawnSpeed) < 1.0 / GetFPS()) {
+    if (CheckTimeInterval(&enemySpawnInterval)) {
       if (spawnedEnemies < 20)
       {
         // Createing a enemy
