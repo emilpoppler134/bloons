@@ -7,11 +7,67 @@
 #include "raylib.h"
 #include "raymath.h"
 
+#define TILE_SIZE 80
+#define COLS 15
+#define ROWS 10
+
 typedef Vector2 v2f;
 
+typedef enum tile_type_e {
+  TILE_GRASS,
+  TILE_TREE_LEFT,
+  TILE_TREE_RIGHT,
+  TILE_FLOWER_LEFT,
+  TILE_FLOWER_RIGHT,
+  TILE_PLANT,
+  TILE_ROCK_SMALL,
+  TILE_ROCK_BIG,
+  PLAYER,
+  ENEMY,
+  BULLET,
+  TILE_PATH_CORNER_TOP_LEFT,
+  TILE_PATH_CORNER_TOP_RIGHT,
+  TILE_PATH_CORNER_BOTTOM_LEFT,
+  TILE_PATH_CORNER_BOTTOM_RIGHT,
+  TILE_PATH_VERTICAL,
+  TILE_PATH_HORIZONTAL,
+  TILE_NUM_TYPES
+} tile_type_e;
+
+bool can_place_on_tile[TILE_NUM_TYPES] =
+{
+  true,     // Grass
+  false,    // Tree left
+  false,    // Tree right
+  false,    // Flower left
+  false,    // Flower right
+  false,    // Plant
+  false,    // Rock small
+  false,    // Rock big
+  false,    // player
+  false,    // enemy
+  false,    // bullet
+  false,    // Path corner top left
+  false,    // Path corner top right
+  false,    // Path corner bottom left
+  false,    // Path corner bottom right
+  false,    // Path vertical
+  false     // Path horizontal
+};
 
 // Structs for the entity, state and the dynamic array
 //--------------------------------------------------------------------------------------
+typedef struct TurningPoint
+{
+  v2f direction;
+  v2f point;
+} TurningPoint;
+
+typedef struct level_t {
+  tile_type_e tiles[ROWS][COLS];
+  TurningPoint turning_points[6];
+} level_t;
+
 typedef struct TimeInterval {
   double lastTime;
   double interval;
@@ -34,12 +90,6 @@ typedef struct dynamicEntityArray
   int capacity;
 } dynamicEntityArray;
 
-typedef struct TurningPoint
-{
-  v2f direction;
-  v2f point;
-} TurningPoint;
-
 typedef struct State
 {
   int economy;
@@ -55,6 +105,25 @@ typedef struct State
 
 // Methods for initializing the dynamic array, pushing, removeing at, checking if player position is empty
 //--------------------------------------------------------------------------------------
+void DeserializeLevel(level_t *level)
+{
+  FILE *file = fopen("./resources/level.texture", "rb");
+  if (!file)
+  {
+    perror("Failed to open level file");
+    exit(1);
+  }
+
+  if (fread(level, sizeof(level_t), 1, file) != 1)
+  {
+    perror("Failed to read level data");
+    fclose(file);
+    exit(1);
+  }
+
+  fclose(file);
+}
+
 dynamicEntityArray initEntityArray() {
   dynamicEntityArray arr;
   arr.data = (Entity*)malloc(sizeof(Entity));
@@ -97,26 +166,6 @@ void remove_at(dynamicEntityArray *arr, int index) {
   arr->capacity--;
 }
 
-bool isPositionEmpty(dynamicEntityArray players, float width, float height, float mouseX, float mouseY)
-{
-  for (int i = 0; i < players.count; i++)
-  {
-    Entity *player = &players.data[i];
-
-    // Create the bounds
-    Rectangle playerBounds = { player->position.x - width / 2, player->position.y - height / 2, width, height };
-    Rectangle mouseBounds = { mouseX - width / 2, mouseY - height / 2, width, height };
-
-    // Check if the bullet's bounding box overlaps with the enemy's bounding box
-    if (CheckCollisionRecs(playerBounds, mouseBounds))
-    {
-      return false;
-    }
-  }
-
-  return true;
-}
-
 // Initialize a time interval with a specified interval
 TimeInterval InitTimeInterval(double seconds) {
   TimeInterval interval;
@@ -135,6 +184,25 @@ bool CheckTimeInterval(TimeInterval *timer) {
   return false;
 }
 
+bool isPositionEmpty(dynamicEntityArray *players, int tileX, int tileY)
+{
+  for (int i = 0; i < players->count; i++)
+  {
+    Entity *player = &players->data[i];
+
+    // Create the bounds
+    Rectangle playerBounds = { player->position.x - TILE_SIZE / 2, player->position.y - TILE_SIZE / 2, TILE_SIZE, TILE_SIZE };
+    Rectangle mouseBounds = { tileX * TILE_SIZE, tileY * TILE_SIZE, TILE_SIZE, TILE_SIZE };
+
+    // Check if the bullet's bounding box overlaps with the enemy's bounding box
+    if (CheckCollisionRecs(playerBounds, mouseBounds))
+    {
+      return false;
+    }
+  }
+
+  return true;
+}
 
 // Main
 //--------------------------------------------------------------------------------------
@@ -146,7 +214,10 @@ int main()
   const int screenHeight = 800;
 
   InitWindow(screenWidth, screenHeight, "My window");
-
+  
+  level_t level;
+  DeserializeLevel(&level);
+  
   // Creating a state for the game
   State state;
   state.economy = 100;
@@ -156,58 +227,16 @@ int main()
   state.enemySpawnSpeed = 4;
   state.players = initEntityArray();
   state.enemies = initEntityArray();
-  state.bullets = initEntityArray();
+  state.bullets = initEntityArray();  
 
   // Loading all of the resources
-  Texture2D background = LoadTexture("resources/BACKGROUND.png");
-  background.width = screenWidth;
-  background.height = screenHeight;
-
-  Texture2D bulletImage = LoadTexture("resources/BULLET.png");
-  bulletImage.width = 77;
-  bulletImage.height = 50;
-
-  Texture2D enemyImage = LoadTexture("resources/ENEMY.png");
-  enemyImage.width = 100;
-  enemyImage.height = 100;
-
-  Texture2D playerImage = LoadTexture("resources/PLAYER.png");
-  playerImage.width = 100;
-  playerImage.height = 100;
-
-  clock_t startTime = GetTime();
-
-  int spawnedEnemies = 0;
+  Texture2D tileset = LoadTexture("resources/tileset.png");
+  tileset.width = 880;
+  tileset.height = 880;
 
   TimeInterval enemySpawnInterval = InitTimeInterval(state.enemySpawnSpeed);
-
-  TurningPoint turning_points[6] = {
-    {
-      .direction = (v2f){0, -1},
-      .point = (v2f){200, 440}
-    },
-    {
-      .direction = (v2f){1, 0},
-      .point = (v2f){200, 200}
-    },
-    {
-      .direction = (v2f){0, 1},
-      .point = (v2f){440, 200}
-    },
-    {
-      .direction = (v2f){1, 0},
-      .point = (v2f){440, 520}
-    },
-    {
-      .direction = (v2f){0, -1},
-      .point = (v2f){760, 520}
-    },
-    {
-      .direction = (v2f){1, 0},
-      .point = (v2f){760, 370}
-    }
-  };
-
+  
+  int spawnedEnemies = 0;
   //--------------------------------------------------------------------------------------
 
   // Game Loop
@@ -221,20 +250,32 @@ int main()
       int mouseX = GetMouseX();
       int mouseY = GetMouseY();
 
-      if (state.economy >= 100) {
-        if (isPositionEmpty(state.players, playerImage.width, playerImage.height, mouseX, mouseY))
+      // Calculate the tile coordinates based on mouse position
+      int tileX = mouseX / TILE_SIZE;
+      int tileY = mouseY / TILE_SIZE;
+
+      // Check if the calculated tile coordinates are within the valid range
+      if (tileX >= 0 && tileX < COLS && tileY >= 0 && tileY < ROWS)
+      {
+        if (isPositionEmpty(&state.players, tileX, tileY))
         {
-          // Take 100 from the users bank for a player
-          state.economy -= 100;
+          if (can_place_on_tile[level.tiles[tileY][tileX]])
+          {
+            if (state.economy >= 100)
+            {
+              // Take 100 from the user's bank for a player
+              state.economy -= 100;
 
-          // Create a new player
-          Entity player;
-          player.position = (v2f){mouseX, mouseY};
-          player.hp = 100;
-          player.interval = InitTimeInterval(state.shootingSpeed);
+              // Create a new player
+              Entity player;
+              player.position = (v2f){tileX * TILE_SIZE + TILE_SIZE / 2, tileY * TILE_SIZE + TILE_SIZE / 2};
+              player.hp = 100;
+              player.interval = InitTimeInterval(state.shootingSpeed);
 
-          // Push to the dynamic array
-          push(&state.players, player);
+              // Push to the dynamic array
+              push(&state.players, player);
+            }
+          }
         }
       }
     }
@@ -254,7 +295,7 @@ int main()
       {
         // Createing a enemy
         Entity enemy;
-        enemy.position = (v2f){0 - enemyImage.width, 440 - enemyImage.height / 2};
+        enemy.position = (v2f){0 - TILE_SIZE, level.turning_points[0].point.y - TILE_SIZE / 2};
         enemy.direction = (v2f){1, 0};
         enemy.speed = 100.0f;
         enemy.hp = 100;
@@ -268,7 +309,7 @@ int main()
     for (int i = 0; i < state.players.count; i++)
     {
       Entity *player = &state.players.data[i];
-      v2f playerCenter = {player->position.x + playerImage.width / 2, player->position.y + playerImage.height / 2};
+      v2f playerCenter = {player->position.x + TILE_SIZE / 2, player->position.y + TILE_SIZE / 2};
 
       if (CheckTimeInterval(&player->interval))
       {
@@ -279,7 +320,7 @@ int main()
           for (int j = 0; j < state.enemies.count; j++)
           {
             Entity enemy = state.enemies.data[j];
-            Rectangle enemyBounds = { enemy.position.x, enemy.position.y, enemyImage.width, enemyImage.height };
+            Rectangle enemyBounds = { enemy.position.x, enemy.position.y, TILE_SIZE, TILE_SIZE };
 
             // If enemy is inside player radius
             if (CheckCollisionCircleRec(playerCenter, 300, enemyBounds))
@@ -299,7 +340,7 @@ int main()
           for (int j = 0; j < enemies_in_radius.count; j++)
           {
             Entity *enemy = &enemies_in_radius.data[j];
-            v2f enemyCenter = {enemy->position.x + enemyImage.width / 2, enemy->position.y + enemyImage.height / 2};
+            v2f enemyCenter = {enemy->position.x + TILE_SIZE / 2, enemy->position.y + TILE_SIZE / 2};
 
             // Calculate the distance between the player and the enemy
             float distance = Vector2Distance(playerCenter, enemyCenter);
@@ -352,11 +393,11 @@ int main()
       enemy->position.x += enemy->direction.x * distanceToMove;
       enemy->position.y += enemy->direction.y * distanceToMove;
 
-      for (int j = 0; j < sizeof(turning_points); j++)
+      for (int j = 0; j < sizeof(level.turning_points); j++)
       {
-        TurningPoint turningPoint = turning_points[j];
+        TurningPoint turningPoint = level.turning_points[j];
 
-        if (floor(enemy->position.x + enemyImage.width / 2) == turningPoint.point.x && floor(enemy->position.y + enemyImage.height / 2) == turningPoint.point.y)
+        if (floor(enemy->position.x + TILE_SIZE / 2) == turningPoint.point.x && floor(enemy->position.y + TILE_SIZE / 2) == turningPoint.point.y)
         {
           enemy->direction = turningPoint.direction;
         }
@@ -388,8 +429,8 @@ int main()
         Entity *enemy = &state.enemies.data[j];
 
         // Calculate the bounding boxes of the bullet and enemy
-        Rectangle bulletBounds = { bullet->position.x, bullet->position.y, bulletImage.width, bulletImage.height };
-        Rectangle enemyBounds = { enemy->position.x, enemy->position.y, enemyImage.width, enemyImage.height };
+        Rectangle bulletBounds = { bullet->position.x, bullet->position.y, TILE_SIZE, TILE_SIZE };
+        Rectangle enemyBounds = { enemy->position.x, enemy->position.y, TILE_SIZE, TILE_SIZE };
 
         // Check if the bullet's bounding box overlaps with the enemy's bounding box
         if (CheckCollisionRecs(bulletBounds, enemyBounds))
@@ -430,7 +471,20 @@ int main()
     BeginDrawing();
 
       ClearBackground(RAYWHITE);
-      DrawTexture(background, 0, 0, WHITE);
+
+      // Draw the tilemap
+      // Draw the tilemap
+      for (int y = 0; y < ROWS; y++) {
+        for (int x = 0; x < COLS; x++) {
+          int tile = level.tiles[y][x];
+
+          Rectangle destRect = { x * TILE_SIZE, y * TILE_SIZE, TILE_SIZE, TILE_SIZE };
+          Rectangle sourceRect = {(tile % (tileset.width / TILE_SIZE)) * TILE_SIZE, (tile / (tileset.width / TILE_SIZE)) * TILE_SIZE, TILE_SIZE, TILE_SIZE };
+
+          DrawTexturePro(tileset, sourceRect, destRect, Vector2Zero(), 0.0f, WHITE);
+        }
+      }
+
 
       DrawFPS(20, screenHeight - 20);
 
@@ -442,10 +496,10 @@ int main()
       {
         Entity *player = &state.players.data[i];
 
-        DrawTexturePro(playerImage,
-          (Rectangle){0, 0, playerImage.width, playerImage.height},
-          (Rectangle){player->position.x, player->position.y, playerImage.width, playerImage.height},
-          (v2f){playerImage.width / 2, playerImage.height / 2},
+        DrawTexturePro(tileset,
+          (Rectangle){640, 0, TILE_SIZE, TILE_SIZE},
+          (Rectangle){player->position.x, player->position.y, TILE_SIZE, TILE_SIZE},
+          (v2f){TILE_SIZE / 2, TILE_SIZE / 2},
           player->rotation,
           WHITE);
 
@@ -455,7 +509,7 @@ int main()
           BLACK);
 
         // tmp rectangle around the players
-        Rectangle playerBounds = { player->position.x - 100 / 2, player->position.y - 100 / 2, 100, 100 };
+        Rectangle playerBounds = { player->position.x - TILE_SIZE / 2, player->position.y - TILE_SIZE / 2, TILE_SIZE, TILE_SIZE };
         DrawRectangleLinesEx(playerBounds, 1, BLACK);
       }
       for (int i = 0; i < state.enemies.count; i++)
@@ -463,27 +517,27 @@ int main()
         Entity *enemy = &state.enemies.data[i];
 
         const char* hp_text = TextFormat("%d", enemy->hp);
-        DrawText(hp_text, (enemy->position.x + (enemyImage.width / 2) - (MeasureText(hp_text, 20) / 2)), (enemy->position.y - 20), 20, WHITE);
+        DrawText(hp_text, (enemy->position.x + (TILE_SIZE / 2) - (MeasureText(hp_text, 20) / 2)), (enemy->position.y - 20), 20, WHITE);
         
-        DrawTexturePro(enemyImage,
-          (Rectangle){0, 0, enemyImage.width, enemyImage.height},
-          (Rectangle){enemy->position.x + enemyImage.width / 2, enemy->position.y + enemyImage.height / 2, enemyImage.width, enemyImage.height},
-          (v2f){enemyImage.width / 2, enemyImage.height / 2},
+        DrawTexturePro(tileset,
+          (Rectangle){720, 0, TILE_SIZE, TILE_SIZE},
+          (Rectangle){enemy->position.x + TILE_SIZE / 2, enemy->position.y + TILE_SIZE / 2, TILE_SIZE, TILE_SIZE},
+          (v2f){TILE_SIZE / 2, TILE_SIZE / 2},
           0,
           WHITE);
 
         // tmp rectangle around the enemys
-        Rectangle playerBounds = { enemy->position.x, enemy->position.y, 100, 100 };
+        Rectangle playerBounds = { enemy->position.x, enemy->position.y, TILE_SIZE, TILE_SIZE };
         DrawRectangleLinesEx(playerBounds, 1, BLACK);
       }
       for (int i = 0; i < state.bullets.count; i++)
       {
         Entity *bullet = &state.bullets.data[i];
 
-        DrawTexturePro(bulletImage,
-          (Rectangle){0, 0, bulletImage.width, bulletImage.height},
-          (Rectangle){bullet->position.x, bullet->position.y, bulletImage.width, bulletImage.height},
-          (v2f){bulletImage.width / 2, bulletImage.height / 2},
+        DrawTexturePro(tileset,
+          (Rectangle){800, 0, TILE_SIZE, TILE_SIZE},
+          (Rectangle){bullet->position.x, bullet->position.y, TILE_SIZE, TILE_SIZE},
+          (v2f){TILE_SIZE / 2, TILE_SIZE / 2},
           bullet->rotation,
           WHITE);
       }
@@ -492,10 +546,7 @@ int main()
     //----------------------------------------------------------------------------------
   }
 
-  UnloadTexture(background);
-  UnloadTexture(bulletImage);
-  UnloadTexture(enemyImage);
-  UnloadTexture(playerImage);
+  UnloadTexture(tileset);
 
   free(state.players.data);
   free(state.enemies.data);
