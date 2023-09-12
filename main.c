@@ -274,6 +274,20 @@ int main()
       {
         if (state.enemies.count != 0)
         {
+          dynamicEntityArray enemies_in_radius = initEntityArray();
+
+          for (int j = 0; j < state.enemies.count; j++)
+          {
+            Entity enemy = state.enemies.data[j];
+            Rectangle enemyBounds = { enemy.position.x, enemy.position.y, enemyImage.width, enemyImage.height };
+
+            // If enemy is inside player radius
+            if (CheckCollisionCircleRec(playerCenter, 300, enemyBounds))
+            {
+              push(&enemies_in_radius, enemy);
+            }
+          }
+          
           // Find the closest enemy and get direction from player to that enemy
           float closestEnemyDistance = FLT_MAX;
           v2f closestEnemyDirection = {0, 0};
@@ -282,41 +296,45 @@ int main()
           v2f lowestEnemyDirection = {0, 0};
 
           // Loop through the enemies
-          for (int j = 0; j < state.enemies.count; j++)
+          for (int j = 0; j < enemies_in_radius.count; j++)
           {
-            Entity enemy = state.enemies.data[j];
-            v2f enemyCenter = {enemy.position.x + enemyImage.width / 2, enemy.position.y + enemyImage.height / 2};
+            Entity *enemy = &enemies_in_radius.data[j];
+            v2f enemyCenter = {enemy->position.x + enemyImage.width / 2, enemy->position.y + enemyImage.height / 2};
+
             // Calculate the distance between the player and the enemy
             float distance = Vector2Distance(playerCenter, enemyCenter);
-            
+
             // Check if this enemy is lower than the previously lowest enemy
-            if (enemy.hp < lowestEnemyHp)
+            if (enemy->hp < lowestEnemyHp)
             {
-              lowestEnemyHp = enemy.hp;
+              lowestEnemyHp = enemy->hp;
               lowestEnemyDirection = Vector2Normalize(Vector2Subtract(enemyCenter, playerCenter)); // Calculate the direction vector from the player to the enemy
             }
-            
+
             // Check if this enemy is closer to the player than the previously closest enemy
             if (distance < closestEnemyDistance)
             {
               closestEnemyDistance = distance;
               closestEnemyDirection = Vector2Normalize(Vector2Subtract(enemyCenter, playerCenter)); // Calculate the direction vector from the player to the enemy
             }
+
           }
 
-          float rotationDecimal = (float)(atan2(lowestEnemyDirection.y, lowestEnemyDirection.x) / (2 * PI));
-          float rotation = rotationDecimal * 360;
-          state.players.data[i].rotation = rotation + 90;
+          if (enemies_in_radius.count > 0) {
+            float rotationDecimal = (float)(atan2(lowestEnemyDirection.y, lowestEnemyDirection.x) / (2 * PI));
+            float rotation = rotationDecimal * 360;
+            state.players.data[i].rotation = rotation + 90;
 
-          // Set the direction and speed for the bullet
-          Entity bullet;
-          bullet.position = (v2f){player->position.x, player->position.y};
-          bullet.direction = lowestEnemyDirection;
-          bullet.speed = 5000.0f;
-          bullet.rotation = rotation;
+            // Set the direction and speed for the bullet
+            Entity bullet;
+            bullet.position = (v2f){player->position.x, player->position.y};
+            bullet.direction = lowestEnemyDirection;
+            bullet.speed = 5000.0f;
+            bullet.rotation = rotation;
 
-          // Push to the dynamic array
-          push(&state.bullets, bullet);
+            // Push to the dynamic array
+            push(&state.bullets, bullet);
+          }
         }
       }
     }
@@ -430,6 +448,11 @@ int main()
           (v2f){playerImage.width / 2, playerImage.height / 2},
           player->rotation,
           WHITE);
+
+        DrawCircleLines(player->position.x,
+          player->position.y,
+          300,
+          BLACK);
 
         // tmp rectangle around the players
         Rectangle playerBounds = { player->position.x - 100 / 2, player->position.y - 100 / 2, 100, 100 };
