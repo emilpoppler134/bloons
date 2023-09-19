@@ -6,7 +6,7 @@
 
 #define ROWS 10
 #define COLS 15
-#define LEVEL_FILE_PATH "./resources/level.ep"
+#define LEVEL_FILE_PATH "../resources/levels/level_1"
 
 typedef enum direction_e {
   DIR_NONE,
@@ -16,14 +16,15 @@ typedef enum direction_e {
   DOR_LEFT
 } direction_e;
 
-typedef struct Level
+typedef struct level_t
 {
-	int tiles[ROWS][COLS];
-  direction_e directions[ROWS][COLS];
-  int startingTileY;
-} Level;
+  int tiles[ROWS][COLS];
+  direction_e path[ROWS][COLS];
+  Vector2 enemy_starting_tile;
+  Vector2 enemy_starting_direction;
+} level_t;
 
-void SerializeLevel(const char *path, Level *level)
+void SerializeLevel(const char *path, level_t *level)
 {
 	FILE *file = fopen(path, "wb");
 	if (!file)
@@ -32,7 +33,7 @@ void SerializeLevel(const char *path, Level *level)
 		exit(1);
 	}
 
-	if (fwrite(level, sizeof(Level), 1, file) != 1)
+	if (fwrite(level, sizeof(level_t), 1, file) != 1)
 	{
 		perror("Failed to write level data");
 		fclose(file);
@@ -42,7 +43,7 @@ void SerializeLevel(const char *path, Level *level)
 	fclose(file);
 }
 
-void InitializeLevel(Level *level)
+void InitializeLevel(level_t *level)
 {
 	int tiles[ROWS][COLS] = {
     {0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0},
@@ -57,7 +58,7 @@ void InitializeLevel(Level *level)
     {0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0},
 	};
 
-  direction_e directions[ROWS][COLS] = {
+  direction_e path[ROWS][COLS] = {
     {DIR_NONE, DIR_NONE, DIR_NONE,  DIR_NONE, DIR_NONE, DIR_NONE, DIR_NONE, DIR_NONE, DIR_NONE, DIR_NONE,  DIR_NONE, DIR_NONE, DIR_NONE, DIR_NONE, DIR_NONE},
     {DIR_NONE, DIR_NONE, DIR_NONE,  DIR_NONE, DIR_NONE, DIR_NONE, DIR_NONE, DIR_NONE, DIR_NONE, DIR_NONE,  DIR_NONE, DIR_NONE, DIR_NONE, DIR_NONE, DIR_NONE},
     {DIR_NONE, DIR_NONE, DIR_RIGHT,  DIR_RIGHT, DIR_RIGHT, DIR_DOWN, DIR_NONE, DIR_NONE, DIR_NONE, DIR_NONE,  DIR_NONE, DIR_NONE, DIR_NONE, DIR_NONE, DIR_NONE},
@@ -70,15 +71,16 @@ void InitializeLevel(Level *level)
     {DIR_NONE, DIR_NONE, DIR_NONE,  DIR_NONE, DIR_NONE, DIR_NONE, DIR_NONE, DIR_NONE, DIR_NONE, DIR_NONE,  DIR_NONE, DIR_NONE, DIR_NONE, DIR_NONE, DIR_NONE}
   };
 
-  level->startingTileY = 5;
+  level->enemy_starting_tile = (Vector2){-1, 5};
+  level->enemy_starting_direction = (Vector2){1, 0};
 
 	memcpy(level->tiles, tiles, sizeof(int) * ROWS * COLS);
-	memcpy(level->directions, directions, sizeof(direction_e) * ROWS * COLS);
+	memcpy(level->path, path, sizeof(direction_e) * ROWS * COLS);
 }
 
 int main()
 {
-	Level level;
+	level_t level;
 	InitializeLevel(&level);
 	SerializeLevel(LEVEL_FILE_PATH, &level);
 
