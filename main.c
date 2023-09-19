@@ -49,6 +49,7 @@ typedef struct dynamicEntityArray
 typedef struct State
 {
   int economy;
+  int hp;
   int wave;
   int killedEnemyCount;
   float shootingSpeed;
@@ -177,10 +178,11 @@ int main()
   // Creating a state for the game
   State state;
   state.economy = 100;
+  state.hp = 100;
   state.wave = 1;
   state.killedEnemyCount = 0;
   state.shootingSpeed = 1;
-  state.enemySpawnSpeed = 4;
+  state.enemySpawnSpeed = 3;
   state.players = initEntityArray();
   state.enemies = initEntityArray();
   state.bullets = initEntityArray();  
@@ -247,7 +249,7 @@ int main()
 
     // Enemy spawn loop
     if (CheckTimeInterval(&enemySpawnInterval)) {
-      if (spawnedEnemies < 1)
+      if (spawnedEnemies < 20)
       {
         // Createing a enemy
         Entity enemy;
@@ -360,7 +362,7 @@ int main()
       // Check if the enemy is out of bounds and remove it
       if (enemy->position.x >= screenWidth)
       {
-        printf("You lost\n");
+        state.hp -= 10;
         remove_at(&state.enemies, i);
         break;
       }
@@ -391,7 +393,7 @@ int main()
         if (CheckCollisionRecs(bulletBounds, enemyBounds))
         {
           // Lower enamy hp
-          enemy->hp -= 20;
+          enemy->hp -= 50;
 
           // If enemy gets killed
           if (enemy->hp <= 0)
@@ -444,6 +446,7 @@ int main()
       DrawFPS(20, screenHeight - 20);
 
       DrawText(TextFormat("Bank: %d", state.economy), 10, 10, 28, WHITE);
+      DrawText(TextFormat("Hp: %d", state.hp), 10, 50, 28, WHITE);
       DrawText(TextFormat("Killed enemies: %d", state.killedEnemyCount), screenWidth - 240, 10, 28, WHITE);
       DrawText(TextFormat("Wave: %d", state.wave), screenWidth - 125, 50, 28, WHITE);
 
