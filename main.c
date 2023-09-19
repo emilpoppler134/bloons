@@ -7,65 +7,21 @@
 #include "raylib.h"
 #include "raymath.h"
 
+#include "tiles.h"
+
 #define TILE_SIZE 80
 #define COLS 15
 #define ROWS 10
 
 typedef Vector2 v2f;
 
-typedef enum tile_type_e {
-  TILE_GRASS,
-  TILE_TREE_LEFT,
-  TILE_TREE_RIGHT,
-  TILE_FLOWER_LEFT,
-  TILE_FLOWER_RIGHT,
-  TILE_PLANT,
-  TILE_ROCK_SMALL,
-  TILE_ROCK_BIG,
-  PLAYER,
-  ENEMY,
-  BULLET,
-  TILE_PATH_CORNER_TOP_LEFT,
-  TILE_PATH_CORNER_TOP_RIGHT,
-  TILE_PATH_CORNER_BOTTOM_LEFT,
-  TILE_PATH_CORNER_BOTTOM_RIGHT,
-  TILE_PATH_VERTICAL,
-  TILE_PATH_HORIZONTAL,
-  TILE_NUM_TYPES
-} tile_type_e;
-
-bool can_place_on_tile[TILE_NUM_TYPES] =
-{
-  true,     // Grass
-  false,    // Tree left
-  false,    // Tree right
-  false,    // Flower left
-  false,    // Flower right
-  false,    // Plant
-  false,    // Rock small
-  false,    // Rock big
-  false,    // player
-  false,    // enemy
-  false,    // bullet
-  false,    // Path corner top left
-  false,    // Path corner top right
-  false,    // Path corner bottom left
-  false,    // Path corner bottom right
-  false,    // Path vertical
-  false     // Path horizontal
-};
 
 // Structs for the entity, state and the dynamic array
 //--------------------------------------------------------------------------------------
-typedef struct TurningPoint
-{
-  v2f direction;
-  v2f point;
-} TurningPoint;
-
 typedef struct level_t {
   tile_type_e tiles[ROWS][COLS];
-  TurningPoint turning_points[6];
+  direction_e course[ROWS][COLS];
+  int startingTileY;
 } level_t;
 
 typedef struct TimeInterval {
@@ -107,7 +63,7 @@ typedef struct State
 //--------------------------------------------------------------------------------------
 void DeserializeLevel(level_t *level)
 {
-  FILE *file = fopen("./resources/level.texture", "rb");
+  FILE *file = fopen("./resources/level.ep", "rb");
   if (!file)
   {
     perror("Failed to open level file");
@@ -291,11 +247,11 @@ int main()
 
     // Enemy spawn loop
     if (CheckTimeInterval(&enemySpawnInterval)) {
-      if (spawnedEnemies < 20)
+      if (spawnedEnemies < 1)
       {
         // Createing a enemy
         Entity enemy;
-        enemy.position = (v2f){0 - TILE_SIZE, level.turning_points[0].point.y - TILE_SIZE / 2};
+        enemy.position = (v2f){0 - TILE_SIZE, level.startingTileY * TILE_SIZE};
         enemy.direction = (v2f){1, 0};
         enemy.speed = 100.0f;
         enemy.hp = 100;
@@ -393,15 +349,14 @@ int main()
       enemy->position.x += enemy->direction.x * distanceToMove;
       enemy->position.y += enemy->direction.y * distanceToMove;
 
-      for (int j = 0; j < sizeof(level.turning_points); j++)
-      {
-        TurningPoint turningPoint = level.turning_points[j];
+      int tileX = (int)enemy->position.x / TILE_SIZE;
+      int tileY = (int)enemy->position.y / TILE_SIZE;
 
-        if (floor(enemy->position.x + TILE_SIZE / 2) == turningPoint.point.x && floor(enemy->position.y + TILE_SIZE / 2) == turningPoint.point.y)
-        {
-          enemy->direction = turningPoint.direction;
-        }
+      if ((int)enemy->position.y % TILE_SIZE == 0) {
+        direction_e direction = level.course[tileY][tileX];
+        enemy->direction = directions[direction];
       }
+
       // Check if the enemy is out of bounds and remove it
       if (enemy->position.x >= screenWidth)
       {

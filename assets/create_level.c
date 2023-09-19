@@ -6,18 +6,21 @@
 
 #define ROWS 10
 #define COLS 15
-#define LEVEL_FILE_PATH "./resources/level.texture"
+#define LEVEL_FILE_PATH "./resources/level.ep"
 
-typedef struct TurningPoint
-{
-	Vector2 direction;
-	Vector2 point;
-} TurningPoint;
+typedef enum direction_e {
+  DIR_NONE,
+  DIR_UP,
+  DIR_RIGHT,
+  DIR_DOWN,
+  DOR_LEFT
+} direction_e;
 
 typedef struct Level
 {
 	int tiles[ROWS][COLS];
-	TurningPoint turning_points[6];
+  direction_e directions[ROWS][COLS];
+  int startingTileY;
 } Level;
 
 void SerializeLevel(const char *path, Level *level)
@@ -42,47 +45,35 @@ void SerializeLevel(const char *path, Level *level)
 void InitializeLevel(Level *level)
 {
 	int tiles[ROWS][COLS] = {
-		{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
-    {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
-    {0, 7, 11, 16, 16, 12, 0, 0, 0, 0, 0, 0, 0, 0, 0},
-    {0, 0, 15, 0, 0, 15, 0, 0, 0, 7, 0, 0, 0, 0, 0},
-    {0, 0, 15, 0, 0, 15, 0, 0, 0, 11, 16, 16, 16, 16, 16},
-    {16, 16, 14, 0, 0, 15, 0, 0, 0, 15, 0, 0, 0, 0, 0},
-    {0, 0, 0, 0, 0, 13, 16, 16, 16, 14, 0, 0, 0, 0, 0},
-    {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
-    {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
-    {0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+    {0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0},
+		{0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0},
+    {0,  7,  11, 16, 16, 12, 0,  0,  0,  0,  0,  0,  0,  0,  0},
+    {0,  0,  15, 0,  0,  15, 0,  0,  0,  7,  0,  0,  0,  0,  0},
+    {0,  0,  15, 0,  0,  15, 0,  0,  0,  11, 16, 16, 16, 16, 16},
+    {16, 16, 14, 0,  0,  15, 0,  0,  0,  15, 0,  0,  0,  0,  0},
+    {0,  0,  0,  0,  0,  13, 16, 16, 16, 14, 0,  0,  0,  0,  0},
+    {0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0},
+    {0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0},
+    {0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0,  0},
 	};
 
-	TurningPoint turning_points[6] = {
-		{
-      .direction = (Vector2){0, -1},
-      .point = (Vector2){200, 440}
-    },
-    {
-      .direction = (Vector2){1, 0},
-      .point = (Vector2){200, 200}
-    },
-    {
-      .direction = (Vector2){0, 1},
-      .point = (Vector2){440, 200}
-    },
-    {
-      .direction = (Vector2){1, 0},
-      .point = (Vector2){440, 520}
-    },
-    {
-      .direction = (Vector2){0, -1},
-      .point = (Vector2){760, 520}
-    },
-    {
-      .direction = (Vector2){1, 0},
-      .point = (Vector2){760, 370}
-    }
-	};
+  direction_e directions[ROWS][COLS] = {
+    {DIR_NONE, DIR_NONE, DIR_NONE,  DIR_NONE, DIR_NONE, DIR_NONE, DIR_NONE, DIR_NONE, DIR_NONE, DIR_NONE,  DIR_NONE, DIR_NONE, DIR_NONE, DIR_NONE, DIR_NONE},
+    {DIR_NONE, DIR_NONE, DIR_NONE,  DIR_NONE, DIR_NONE, DIR_NONE, DIR_NONE, DIR_NONE, DIR_NONE, DIR_NONE,  DIR_NONE, DIR_NONE, DIR_NONE, DIR_NONE, DIR_NONE},
+    {DIR_NONE, DIR_NONE, DIR_RIGHT,  DIR_RIGHT, DIR_RIGHT, DIR_DOWN, DIR_NONE, DIR_NONE, DIR_NONE, DIR_NONE,  DIR_NONE, DIR_NONE, DIR_NONE, DIR_NONE, DIR_NONE},
+    {DIR_NONE, DIR_NONE, DIR_UP, DIR_NONE, DIR_NONE, DIR_DOWN, DIR_NONE, DIR_NONE, DIR_NONE, DIR_NONE,  DIR_NONE, DIR_NONE, DIR_NONE, DIR_NONE, DIR_NONE},
+    {DIR_NONE, DIR_NONE, DIR_UP, DIR_NONE, DIR_NONE, DIR_DOWN, DIR_NONE, DIR_NONE, DIR_NONE, DIR_RIGHT,  DIR_RIGHT, DIR_RIGHT, DIR_RIGHT, DIR_RIGHT, DIR_RIGHT},
+    {DIR_RIGHT, DIR_RIGHT, DIR_UP, DIR_NONE, DIR_NONE, DIR_DOWN, DIR_NONE, DIR_NONE, DIR_NONE, DIR_UP, DIR_NONE, DIR_NONE, DIR_NONE, DIR_NONE, DIR_NONE},
+    {DIR_NONE, DIR_NONE, DIR_NONE,  DIR_NONE, DIR_NONE, DIR_RIGHT, DIR_RIGHT, DIR_RIGHT, DIR_RIGHT, DIR_UP, DIR_NONE, DIR_NONE, DIR_NONE, DIR_NONE, DIR_NONE},
+    {DIR_NONE, DIR_NONE, DIR_NONE,  DIR_NONE, DIR_NONE, DIR_NONE, DIR_NONE, DIR_NONE, DIR_NONE, DIR_NONE,  DIR_NONE, DIR_NONE, DIR_NONE, DIR_NONE, DIR_NONE},
+    {DIR_NONE, DIR_NONE, DIR_NONE,  DIR_NONE, DIR_NONE, DIR_NONE, DIR_NONE, DIR_NONE, DIR_NONE, DIR_NONE,  DIR_NONE, DIR_NONE, DIR_NONE, DIR_NONE, DIR_NONE},
+    {DIR_NONE, DIR_NONE, DIR_NONE,  DIR_NONE, DIR_NONE, DIR_NONE, DIR_NONE, DIR_NONE, DIR_NONE, DIR_NONE,  DIR_NONE, DIR_NONE, DIR_NONE, DIR_NONE, DIR_NONE}
+  };
+
+  level->startingTileY = 5;
 
 	memcpy(level->tiles, tiles, sizeof(int) * ROWS * COLS);
-	memcpy(level->turning_points, turning_points, sizeof(TurningPoint) * 6);
+	memcpy(level->directions, directions, sizeof(direction_e) * ROWS * COLS);
 }
 
 int main()
