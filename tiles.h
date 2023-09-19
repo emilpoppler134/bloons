@@ -3,7 +3,8 @@
 
 #include "raylib.h"
 
-typedef enum tile_type_e {
+typedef enum tile_type_e
+{
   TILE_GRASS,
   TILE_TREE_LEFT,
   TILE_TREE_RIGHT,
@@ -12,9 +13,6 @@ typedef enum tile_type_e {
   TILE_PLANT,
   TILE_ROCK_SMALL,
   TILE_ROCK_BIG,
-  PLAYER,
-  ENEMY,
-  BULLET,
   TILE_PATH_CORNER_TOP_LEFT,
   TILE_PATH_CORNER_TOP_RIGHT,
   TILE_PATH_CORNER_BOTTOM_LEFT,
@@ -24,7 +22,8 @@ typedef enum tile_type_e {
   TILE_NUM_TYPES
 } tile_type_e;
 
-typedef enum direction_e {
+typedef enum direction_e
+{
   DIR_NONE,
   DIR_UP,
   DIR_RIGHT,
@@ -32,8 +31,7 @@ typedef enum direction_e {
   DOR_LEFT
 } direction_e;
 
-bool can_place_on_tile[TILE_NUM_TYPES] =
-{
+bool can_place_on_tile[TILE_NUM_TYPES] = {
   true,     // Grass
   false,    // Tree left
   false,    // Tree right
@@ -42,9 +40,6 @@ bool can_place_on_tile[TILE_NUM_TYPES] =
   false,    // Plant
   false,    // Rock small
   false,    // Rock big
-  false,    // player
-  false,    // enemy
-  false,    // bullet
   false,    // Path corner top left
   false,    // Path corner top right
   false,    // Path corner bottom left

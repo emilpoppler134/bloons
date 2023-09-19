@@ -105,9 +105,17 @@ int main()
   game.bullets = init_entity_array();
 
   // Loading the tileset
-  Texture2D tileset = LoadTexture("resources/tileset.png");
-  tileset.width = TILE_SIZE * 11;
-  tileset.height = TILE_SIZE * 11;
+  Texture2D tileset = LoadTexture("./resources/tileset.png");
+  tileset.width = TILE_SIZE * 10;
+  tileset.height = TILE_SIZE * 10;
+
+  // Loading the players texture
+  Texture2D entity_texture = LoadTexture("./resources/entities.png");
+  entity_texture.width = TILE_SIZE * 15;
+  entity_texture.height = TILE_SIZE * 15;
+
+  dynamic_entity_array players;
+  deserialize_players(&players);
 
   time_interval_t enemy_spawn_interval = init_time_interval(game.enemy_spawn_speed);
   //--------------------------------------------------------------------------------------
@@ -140,6 +148,7 @@ int main()
               player.position = (Vector2){tile_x * TILE_SIZE, tile_y * TILE_SIZE};
               player.interval = init_time_interval(game.shooting_speed);
               player.radius = 300;
+              player.texture_index = 0;
               push(&game.players, player);
 
               game.bank -= 100; // Take 100 from bank
@@ -163,6 +172,7 @@ int main()
       enemy.direction = level.enemy_starting_direction;
       enemy.speed = 100.0f;
       enemy.hp = 100;
+      enemy.texture_index = 0;
       push(&game.enemies, enemy);
     }
 
@@ -221,6 +231,7 @@ int main()
           bullet.direction = lowest_enemy_direction;
           bullet.speed = 3000.0f;
           bullet.rotation = rotation;
+          bullet.texture_index = 0;
           push(&game.bullets, bullet);
         }
       }
@@ -335,8 +346,8 @@ int main()
       {
         entity_t *player = &game.players.data[i];
 
-        DrawTexturePro(tileset,
-          (Rectangle){640, 0, TILE_SIZE, TILE_SIZE},
+        DrawTexturePro(entity_texture,
+          (Rectangle){80, player->texture_index * TILE_SIZE, TILE_SIZE, TILE_SIZE},
           (Rectangle){player->position.x + TILE_SIZE / 2, player->position.y + TILE_SIZE / 2, TILE_SIZE, TILE_SIZE},
           (Vector2){TILE_SIZE / 2, TILE_SIZE / 2},
           player->rotation,
@@ -347,7 +358,7 @@ int main()
           player->radius,
           BLACK);
       }
-
+      
       // Draw the enemies
       for (int i = 0; i < game.enemies.count; i++)
       {
@@ -356,8 +367,8 @@ int main()
         const char* hp_text = TextFormat("%d", enemy->hp);
         DrawText(hp_text, (enemy->position.x + (TILE_SIZE / 2) - (MeasureText(hp_text, 20) / 2)), (enemy->position.y - 20), 20, WHITE);
         
-        DrawTexturePro(tileset,
-          (Rectangle){720, 0, TILE_SIZE, TILE_SIZE},
+        DrawTexturePro(entity_texture,
+          (Rectangle){TILE_SIZE * 5, enemy->texture_index * TILE_SIZE, TILE_SIZE, TILE_SIZE},
           (Rectangle){enemy->position.x + TILE_SIZE / 2, enemy->position.y + TILE_SIZE / 2, TILE_SIZE, TILE_SIZE},
           (Vector2){TILE_SIZE / 2, TILE_SIZE / 2},
           0,
@@ -369,8 +380,8 @@ int main()
       {
         entity_t *bullet = &game.bullets.data[i];
 
-        DrawTexturePro(tileset,
-          (Rectangle){800, 0, TILE_SIZE, TILE_SIZE},
+        DrawTexturePro(entity_texture,
+          (Rectangle){TILE_SIZE * 10, bullet->texture_index * TILE_SIZE, TILE_SIZE, TILE_SIZE},
           (Rectangle){bullet->position.x + TILE_SIZE / 2, bullet->position.y + TILE_SIZE / 2, TILE_SIZE, TILE_SIZE},
           (Vector2){TILE_SIZE / 2, TILE_SIZE / 2},
           bullet->rotation,

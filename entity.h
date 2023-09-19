@@ -1,13 +1,16 @@
 #ifndef __ENTITY_H__
 #define __ENTITY_H__
 
+#include <stdio.h>
 #include <stdlib.h>
+#include <dirent.h>
 
 #include "raylib.h"
 #include "time_interval.h"
 
 typedef struct entity_t
 {
+  // Entity
   Vector2 position;
   Vector2 direction;
   float speed;
@@ -15,6 +18,11 @@ typedef struct entity_t
   int hp;
   int radius;
   time_interval_t interval;
+
+  // Resource
+  int texture_index;
+  int damage;
+  int cost;
 } entity_t;
 
 typedef struct dynamic_entity_array
@@ -66,6 +74,49 @@ void remove_at(dynamic_entity_array *arr, int index) {
   arr->data = new_arr;
   arr->count--;
   arr->capacity--;
+}
+
+// Resources
+void deserialize_players(dynamic_entity_array *players)
+{
+  DIR *directory;
+  struct dirent *entry;
+
+  // Open the directory
+  directory = opendir("./resources/players");
+
+  if (directory == NULL) {
+    perror("Error opening directory");
+    exit(1);
+  }
+
+  // Read each entry in the directory
+  while ((entry = readdir(directory)) != NULL) {
+    if (entry->d_type == DT_REG) {  // Check if it's a regular file
+      entity_t player;
+
+      FILE *file = fopen(TextFormat("./resources/players/%s", entry->d_name), "rb");
+      if (!file)
+      {
+        perror("Failed to open level file");
+        exit(1);
+      }
+
+      if (fread(&player, sizeof(entity_t), 1, file) != 1)
+      {
+        perror("Failed to read level data");
+        fclose(file);
+        exit(1);
+      }
+
+      push(players, player);
+
+      fclose(file);
+    }
+  }
+
+  // Close the directory
+  closedir(directory);
 }
 
 #endif

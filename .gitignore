@@ -1,5 +1,9 @@
 .vscode
 .DS_Store
 Game
-create_level/Create_level
 _*
+
+create/*/*
+
+!create/*/*.sh
+!create/*/*.c
