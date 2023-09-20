@@ -402,6 +402,27 @@ int main()
         }
       }
 
+      if (state == STATE_PLACE)
+      {
+        int mouse_x = GetMouseX();
+        int mouse_y = GetMouseY();
+
+        // Calculate the tile coordinates based on mouse position
+        int tile_x = mouse_x / TILE_SIZE;
+        int tile_y = mouse_y / TILE_SIZE;
+
+        // Check if the calculated tile coordinates are within the valid range
+        if (tile_x >= 0 && tile_x < COLS && tile_y >= 0 && tile_y < ROWS)
+        {
+          DrawTexturePro(entity_texture,
+            (Rectangle){80, placeing_player.texture_index * TILE_SIZE, TILE_SIZE, TILE_SIZE},
+            (Rectangle){tile_x * TILE_SIZE + TILE_SIZE / 2, tile_y * TILE_SIZE + TILE_SIZE / 2, TILE_SIZE, TILE_SIZE},
+            (Vector2){TILE_SIZE / 2, TILE_SIZE / 2},
+            0,
+            (Color){255, 255, 255, 100});
+        }
+      }
+
       // Draw the players
       for (int i = 0; i < game.players.count; i++)
       {
