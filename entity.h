@@ -17,12 +17,10 @@ typedef struct entity_t
   float rotation;
   int hp;
   int radius;
-  time_interval_t interval;
-
-  // Resource
   int texture_index;
   int damage;
   int cost;
+  time_interval_t interval;
 } entity_t;
 
 typedef struct dynamic_entity_array

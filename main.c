@@ -15,6 +15,14 @@
 
 // Structs
 //--------------------------------------------------------------------------------------
+typedef enum state_e
+{
+  STATE_BUY,
+  STATE_PLACE,
+  STATE_REMOVE,
+  STATE_NUM
+} state_e;
+
 typedef struct level_t
 { 
   tile_type_e tiles[ROWS][COLS];
@@ -88,6 +96,8 @@ int main()
 
   InitWindow(screen_width, screen_height, "Bloons TD");
 
+  state_e state = STATE_BUY;
+
   level_t level;
   deserialize_level(&level); // deserialize level 1
 
@@ -117,6 +127,8 @@ int main()
   dynamic_entity_array players;
   deserialize_players(&players);
 
+  entity_t placeing_player;
+
   time_interval_t enemy_spawn_interval = init_time_interval(game.enemy_spawn_speed);
   //--------------------------------------------------------------------------------------
 
@@ -137,23 +149,54 @@ int main()
       // Check if the calculated tile coordinates are within the valid range
       if (tile_x >= 0 && tile_x < COLS && tile_y >= 0 && tile_y < ROWS)
       {
-        if (is_position_empty(&game.players, tile_x, tile_y))
+        switch (state)
         {
-          if (can_place_on_tile[level.tiles[tile_y][tile_x]])
+          case STATE_BUY:
           {
-            if (game.bank >= 100)
+            for (int i = 0; i < players.count; i++)
             {
-              // Create a new player
-              entity_t player;
-              player.position = (Vector2){tile_x * TILE_SIZE, tile_y * TILE_SIZE};
-              player.interval = init_time_interval(game.shooting_speed);
-              player.radius = 300;
-              player.texture_index = 0;
-              push(&game.players, player);
+              entity_t player = players.data[i];
+              Rectangle button_bounds = {160 + i * TILE_SIZE, screen_height - TILE_SIZE, TILE_SIZE, TILE_SIZE};
 
-              game.bank -= 100; // Take 100 from bank
+              if (CheckCollisionPointRec(GetMousePosition(), button_bounds))
+              {
+                if (game.bank >= player.cost)
+                {
+                  placeing_player = player;
+                  game.bank -= player.cost;
+                  state = STATE_PLACE;
+                }
+              }
             }
-          }
+          } break;
+
+          case STATE_PLACE:
+          {
+            if (is_position_empty(&game.players, tile_x, tile_y))
+            {
+              if (can_place_on_tile[level.tiles[tile_y][tile_x]])
+              {
+                // Create a new player
+                entity_t player;
+                player.position = (Vector2){tile_x * TILE_SIZE, tile_y * TILE_SIZE};
+                player.interval = init_time_interval(game.shooting_speed);
+                player.radius = placeing_player.radius;
+                player.damage = placeing_player.damage;
+                player.texture_index = placeing_player.texture_index;
+                push(&game.players, player);
+
+                state = STATE_BUY;
+              }
+            }
+          } break;
+
+          case STATE_REMOVE:
+          {
+            // Remove
+          } break;
+
+          default:
+          break;
         }
       }
     }
@@ -231,7 +274,8 @@ int main()
           bullet.direction = lowest_enemy_direction;
           bullet.speed = 3000.0f;
           bullet.rotation = rotation;
-          bullet.texture_index = 0;
+          bullet.texture_index = player->texture_index;
+          bullet.damage = player->damage;
           push(&game.bullets, bullet);
         }
       }
@@ -292,7 +336,7 @@ int main()
         if (CheckCollisionRecs(bullet_bounds, enemy_bounds))
         {
           // Lower enamy hp
-          enemy->hp -= 50;
+          enemy->hp -= bullet->damage;
 
           // If enemy gets killed
           if (enemy->hp <= 0)
@@ -336,10 +380,27 @@ int main()
         }
       }
 
-      DrawFPS(20, screen_height - 20);
-      DrawText(TextFormat("Bank: %d", game.bank), 10, 10, 28, WHITE);
-      DrawText(TextFormat("Hp: %d", game.hp), 10, 50, 28, WHITE);
-      DrawText(TextFormat("Killed enemies: %d", game.killed_enemy_count), screen_width - 240, 10, 28, WHITE);
+      DrawFPS(10, 10);
+      DrawText(TextFormat("Kills: %d", game.killed_enemy_count), screen_width - 120, 10, 28, WHITE);
+
+      if (state == STATE_BUY)
+      {
+        DrawRectangle(0, screen_height - TILE_SIZE, screen_width, TILE_SIZE, (Color){0, 0, 0, 100});
+        DrawText(TextFormat("Bank: %d", game.bank), 15, screen_height - 65, 22, WHITE);
+        DrawText(TextFormat("Hp: %d", game.hp), 15, screen_height - 35, 22, WHITE);
+
+        for (int i = 0; i < players.count; i++)
+        {
+          entity_t *player = &players.data[i];
+
+          DrawTexturePro(entity_texture,
+            (Rectangle){0, i * TILE_SIZE, TILE_SIZE, TILE_SIZE},
+            (Rectangle){160 + i * TILE_SIZE + TILE_SIZE / 2, screen_height - TILE_SIZE / 2, TILE_SIZE, TILE_SIZE},
+            (Vector2){TILE_SIZE / 2, TILE_SIZE / 2},
+            0,
+            WHITE);
+        }
+      }
 
       // Draw the players
       for (int i = 0; i < game.players.count; i++)

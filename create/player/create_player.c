@@ -30,6 +30,7 @@ void initialize_player(entity_t *player)
   player->texture_index = 0;
   player->cost = 100;
   player->damage = 50;
+	player->radius = 300;
 }
 
 int main()
