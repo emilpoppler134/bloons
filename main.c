@@ -272,7 +272,7 @@ int main()
           entity_t bullet;
           bullet.position = (Vector2){player->position.x, player->position.y};
           bullet.direction = lowest_enemy_direction;
-          bullet.speed = 3000.0f;
+          bullet.speed = 2000.0f;
           bullet.rotation = rotation;
           bullet.texture_index = player->texture_index;
           bullet.damage = player->damage;
@@ -335,19 +335,25 @@ int main()
         // Check if the bullet's bounding box overlaps with the enemy's bounding box
         if (CheckCollisionRecs(bullet_bounds, enemy_bounds))
         {
-          // Lower enamy hp
-          enemy->hp -= bullet->damage;
+          Vector2 enemy_center = {enemy->position.x + TILE_SIZE / 2, enemy->position.y + TILE_SIZE / 2};
+          Vector2 bullet_center = {bullet->position.x + TILE_SIZE / 2, bullet->position.y + TILE_SIZE / 2};
 
-          // If enemy gets killed
-          if (enemy->hp <= 0)
+          if (CheckCollisionCircles(enemy_center, TILE_SIZE / 4, bullet_center, TILE_SIZE / 4))
           {
-            game.killed_enemy_count += 1; // Add one to the killed enemy counter
-            game.bank += 25; // Add to bank
-            remove_at(&game.enemies, j); // Remove the enemy
-          }
+            // Lower enamy hp
+            enemy->hp -= bullet->damage;
 
-          // Remove the bullet
-          remove_at(&game.bullets, i);
+            // If enemy gets killed
+            if (enemy->hp <= 0)
+            {
+              game.killed_enemy_count += 1; // Add one to the killed enemy counter
+              game.bank += 25; // Add to bank
+              remove_at(&game.enemies, j); // Remove the enemy
+            }
+
+            // Remove the bullet
+            remove_at(&game.bullets, i);
+          }
         }
       }
 
@@ -420,6 +426,11 @@ int main()
             (Vector2){TILE_SIZE / 2, TILE_SIZE / 2},
             0,
             (Color){255, 255, 255, 100});
+
+          DrawCircleLines(tile_x * TILE_SIZE + TILE_SIZE / 2,
+            tile_y * TILE_SIZE + TILE_SIZE / 2,
+            placeing_player.radius,
+            BLACK);
         }
       }
 
