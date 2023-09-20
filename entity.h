@@ -31,8 +31,29 @@ typedef struct dynamic_entity_array
 } dynamic_entity_array;
 
 
+entity_t init_entity()
+{
+  entity_t entity = {
+    .position = (Vector2){0, 0},
+    .direction = (Vector2){0, 0},
+    .speed = 0,
+    .rotation = 0,
+    .hp = 0,
+    .radius = 0,
+    .texture_index = 0,
+    .damage = 0,
+    .cost = 0,
+    .interval = (time_interval_t){
+      .interval = 0,
+      .last_time = 0
+    }
+  };
 
-dynamic_entity_array init_entity_array() {
+  return entity;
+}
+
+dynamic_entity_array init_entity_array()
+{
   dynamic_entity_array arr;
   arr.data = (entity_t*)malloc(sizeof(entity_t));
   arr.count = 0;
@@ -40,8 +61,10 @@ dynamic_entity_array init_entity_array() {
   return arr;
 }
 
-void push(dynamic_entity_array *arr, entity_t item) {
-  if (arr->count == arr->capacity) {
+void push(dynamic_entity_array *arr, entity_t item)
+{
+  if (arr->count == arr->capacity)
+  {
     arr->capacity++;
     arr->data = (entity_t*)realloc(arr->data, arr->capacity * sizeof(entity_t));
   }
@@ -49,20 +72,25 @@ void push(dynamic_entity_array *arr, entity_t item) {
   arr->count++;
 }
 
-void remove_at(dynamic_entity_array *arr, int index) {
-  if (index < 0 || index >= arr->count) {
+void remove_at(dynamic_entity_array *arr, int index)
+{
+  if (index < 0 || index >= arr->count)
+  {
     return;
   }
 
   entity_t* new_arr = (entity_t*)malloc((arr->capacity - 1) * sizeof(entity_t));
-  if (!new_arr) {
+  if (!new_arr)
+  {
     return;
   }
 
   int new_arr_index = 0;
 
-  for (int i = 0; i < arr->count; i++) {
-    if (i != index) {
+  for (int i = 0; i < arr->count; i++)
+  {
+    if (i != index)
+    {
       new_arr[new_arr_index] = arr->data[i];
       new_arr_index++;
     }
@@ -75,13 +103,13 @@ void remove_at(dynamic_entity_array *arr, int index) {
 }
 
 // Resources
-void deserialize_players(dynamic_entity_array *players)
+void deserialize_entities(dynamic_entity_array *entities, char* entity_type)
 {
   DIR *directory;
   struct dirent *entry;
 
   // Open the directory
-  directory = opendir("./resources/players");
+  directory = opendir(TextFormat("./resources/%s", entity_type));
 
   if (directory == NULL) {
     perror("Error opening directory");
@@ -89,11 +117,13 @@ void deserialize_players(dynamic_entity_array *players)
   }
 
   // Read each entry in the directory
-  while ((entry = readdir(directory)) != NULL) {
-    if (entry->d_type == DT_REG) {  // Check if it's a regular file
+  while ((entry = readdir(directory)) != NULL)
+  {
+    if (entry->d_type == DT_REG) // Check if it's a regular file
+    {
       entity_t player;
 
-      FILE *file = fopen(TextFormat("./resources/players/%s", entry->d_name), "rb");
+      FILE *file = fopen(TextFormat("./resources/%s/%s", entity_type, entry->d_name), "rb");
       if (!file)
       {
         perror("Failed to open level file");
@@ -107,7 +137,7 @@ void deserialize_players(dynamic_entity_array *players)
         exit(1);
       }
 
-      push(players, player);
+      push(entities, player);
 
       fclose(file);
     }

@@ -35,7 +35,7 @@ void initialize_player(entity_t *player)
 
 int main()
 {
-	entity_t player;
+	entity_t player = init_entity();
 	initialize_player(&player);
 	serialize_player(PLAYER_FILE_PATH, &player);
 

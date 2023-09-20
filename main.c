@@ -35,6 +35,7 @@ typedef struct game_t
 {
   int bank;
   int hp;
+  int enemy_type;
   int killed_enemy_count;
   int shooting_speed;
   int enemy_spawn_speed;
@@ -99,12 +100,13 @@ int main()
   state_e state = STATE_BUY;
 
   level_t level;
-  deserialize_level(&level); // deserialize level 1
+  deserialize_level(&level); // deserialize level
 
   // Setting the game settings
   game_t game;
   game.bank = 100;
   game.hp = 100;
+  game.enemy_type = 0;
   game.killed_enemy_count = 0;
   game.shooting_speed = 1;
   game.enemy_spawn_speed = 3;
@@ -124,14 +126,19 @@ int main()
   entity_texture.width = TILE_SIZE * 15;
   entity_texture.height = TILE_SIZE * 15;
 
-  dynamic_entity_array players;
-  deserialize_players(&players);
+  dynamic_entity_array players = init_entity_array();
+  deserialize_entities(&players, "players");
 
-  entity_t placeing_player;
+  dynamic_entity_array enemies = init_entity_array();;
+  deserialize_entities(&enemies, "enemies");
+
+  entity_t placeing_player = init_entity();
 
   time_interval_t enemy_spawn_interval = init_time_interval(game.enemy_spawn_speed);
+  int spawned_enemies = 0;
   //--------------------------------------------------------------------------------------
 
+  printf("%d\n", enemies.data[0].texture_index);
 
   while (!WindowShouldClose())
   {
@@ -177,7 +184,7 @@ int main()
               if (can_place_on_tile[level.tiles[tile_y][tile_x]])
               {
                 // Create a new player
-                entity_t player;
+                entity_t player = init_entity();
                 player.position = (Vector2){tile_x * TILE_SIZE, tile_y * TILE_SIZE};
                 player.interval = init_time_interval(game.shooting_speed);
                 player.radius = placeing_player.radius;
@@ -210,13 +217,20 @@ int main()
     if (check_time_interval(&enemy_spawn_interval))
     {
       // Create an enemy
-      entity_t enemy;
+      entity_t enemy = init_entity();
       enemy.position = (Vector2){level.enemy_starting_tile.x * TILE_SIZE, level.enemy_starting_tile.y * TILE_SIZE};
       enemy.direction = level.enemy_starting_direction;
-      enemy.speed = 100.0f;
-      enemy.hp = 100;
-      enemy.texture_index = 0;
+      enemy.speed = enemies.data[game.enemy_type].speed;
+      enemy.hp = enemies.data[game.enemy_type].hp;
+      enemy.texture_index = enemies.data[game.enemy_type].texture_index;
       push(&game.enemies, enemy);
+
+      spawned_enemies++;
+      
+      if (spawned_enemies % 20 == 0)
+      {
+        game.enemy_type++;
+      }
     }
 
     // Player loop
@@ -269,7 +283,7 @@ int main()
           player->rotation = rotation + 90;
 
           // Create a bullet and set the direction and speed
-          entity_t bullet;
+          entity_t bullet = init_entity();
           bullet.position = (Vector2){player->position.x, player->position.y};
           bullet.direction = lowest_enemy_direction;
           bullet.speed = 2000.0f;
@@ -387,52 +401,6 @@ int main()
       }
 
       DrawFPS(10, 10);
-      DrawText(TextFormat("Kills: %d", game.killed_enemy_count), screen_width - 120, 10, 28, WHITE);
-
-      if (state == STATE_BUY)
-      {
-        DrawRectangle(0, screen_height - TILE_SIZE, screen_width, TILE_SIZE, (Color){0, 0, 0, 100});
-        DrawText(TextFormat("Bank: %d", game.bank), 15, screen_height - 65, 22, WHITE);
-        DrawText(TextFormat("Hp: %d", game.hp), 15, screen_height - 35, 22, WHITE);
-
-        for (int i = 0; i < players.count; i++)
-        {
-          entity_t *player = &players.data[i];
-
-          DrawTexturePro(entity_texture,
-            (Rectangle){0, i * TILE_SIZE, TILE_SIZE, TILE_SIZE},
-            (Rectangle){160 + i * TILE_SIZE + TILE_SIZE / 2, screen_height - TILE_SIZE / 2, TILE_SIZE, TILE_SIZE},
-            (Vector2){TILE_SIZE / 2, TILE_SIZE / 2},
-            0,
-            WHITE);
-        }
-      }
-
-      if (state == STATE_PLACE)
-      {
-        int mouse_x = GetMouseX();
-        int mouse_y = GetMouseY();
-
-        // Calculate the tile coordinates based on mouse position
-        int tile_x = mouse_x / TILE_SIZE;
-        int tile_y = mouse_y / TILE_SIZE;
-
-        // Check if the calculated tile coordinates are within the valid range
-        if (tile_x >= 0 && tile_x < COLS && tile_y >= 0 && tile_y < ROWS)
-        {
-          DrawTexturePro(entity_texture,
-            (Rectangle){80, placeing_player.texture_index * TILE_SIZE, TILE_SIZE, TILE_SIZE},
-            (Rectangle){tile_x * TILE_SIZE + TILE_SIZE / 2, tile_y * TILE_SIZE + TILE_SIZE / 2, TILE_SIZE, TILE_SIZE},
-            (Vector2){TILE_SIZE / 2, TILE_SIZE / 2},
-            0,
-            (Color){255, 255, 255, 100});
-
-          DrawCircleLines(tile_x * TILE_SIZE + TILE_SIZE / 2,
-            tile_y * TILE_SIZE + TILE_SIZE / 2,
-            placeing_player.radius,
-            BLACK);
-        }
-      }
 
       // Draw the players
       for (int i = 0; i < game.players.count; i++)
@@ -446,10 +414,10 @@ int main()
           player->rotation,
           WHITE);
 
-        DrawCircleLines(player->position.x + TILE_SIZE / 2,
+        DrawCircle(player->position.x + TILE_SIZE / 2,
           player->position.y + TILE_SIZE / 2,
           player->radius,
-          BLACK);
+          (Color){255, 255, 255, 10});
       }
       
       // Draw the enemies
@@ -480,6 +448,59 @@ int main()
           bullet->rotation,
           WHITE);
       }
+
+      if (state == STATE_BUY)
+      {
+        DrawText(TextFormat("Kills: %d", game.killed_enemy_count), screen_width - 120, 10, 28, WHITE);
+
+        DrawRectangle(0, screen_height - TILE_SIZE, screen_width, TILE_SIZE, (Color){0, 0, 0, 100});
+        DrawText(TextFormat("Bank: %d", game.bank), 15, screen_height - 65, 22, WHITE);
+        DrawText(TextFormat("Hp: %d", game.hp), 15, screen_height - 35, 22, WHITE);
+
+        for (int i = 0; i < players.count; i++)
+        {
+          entity_t *player = &players.data[i];
+
+          DrawTexturePro(entity_texture,
+            (Rectangle){0, i * TILE_SIZE, TILE_SIZE, TILE_SIZE},
+            (Rectangle){160 + i * TILE_SIZE + TILE_SIZE / 2, screen_height - TILE_SIZE / 2, TILE_SIZE - 16, TILE_SIZE - 16},
+            (Vector2){TILE_SIZE / 2, TILE_SIZE / 2},
+            0,
+            game.bank >= player->cost ? WHITE : (Color){255, 255, 255, 100});
+
+          const char* cost_text = TextFormat("%d", player->cost);
+          DrawText(cost_text, (160 + i * TILE_SIZE + (TILE_SIZE / 2) - (MeasureText(cost_text, 20) / 2)), (screen_height - 20), 20, WHITE);
+        }
+      }
+
+      if (state == STATE_PLACE)
+      {
+        int mouse_x = GetMouseX();
+        int mouse_y = GetMouseY();
+
+        // Calculate the tile coordinates based on mouse position
+        int tile_x = mouse_x / TILE_SIZE;
+        int tile_y = mouse_y / TILE_SIZE;
+
+        // Check if the calculated tile coordinates are within the valid range
+        if (tile_x >= 0 && tile_x < COLS && tile_y >= 0 && tile_y < ROWS)
+        {
+          bool can_place = is_position_empty(&game.players, tile_x, tile_y) && can_place_on_tile[level.tiles[tile_y][tile_x]];
+
+          DrawTexturePro(entity_texture,
+            (Rectangle){80, placeing_player.texture_index * TILE_SIZE, TILE_SIZE, TILE_SIZE},
+            (Rectangle){tile_x * TILE_SIZE + TILE_SIZE / 2, tile_y * TILE_SIZE + TILE_SIZE / 2, TILE_SIZE, TILE_SIZE},
+            (Vector2){TILE_SIZE / 2, TILE_SIZE / 2},
+            0,
+            can_place ? (Color){255, 255, 255, 200} : (Color){255, 255, 255, 75});
+
+          DrawCircle(tile_x * TILE_SIZE + TILE_SIZE / 2,
+            tile_y * TILE_SIZE + TILE_SIZE / 2,
+            placeing_player.radius,
+            (Color){255, 255, 255, 25});
+        }
+      }
+
     EndDrawing();
     //----------------------------------------------------------------------------------
   }
