@@ -37,7 +37,6 @@ typedef struct game_t
   int hp;
   int enemy_type;
   int killed_enemy_count;
-  int shooting_speed;
   int enemy_spawn_speed;
   dynamic_entity_array players;
   dynamic_entity_array enemies;
@@ -106,9 +105,7 @@ int main()
   game_t game;
   game.bank = 100;
   game.hp = 100;
-  game.enemy_type = 0;
   game.killed_enemy_count = 0;
-  game.shooting_speed = 1;
   game.enemy_spawn_speed = 3;
 
   // Init the arrays for all entities
@@ -126,11 +123,11 @@ int main()
   entity_texture.width = TILE_SIZE * 15;
   entity_texture.height = TILE_SIZE * 15;
 
-  dynamic_entity_array players = init_entity_array();
-  deserialize_entities(&players, "players");
+  dynamic_entity_array player_types = init_entity_array();
+  deserialize_entities(&player_types, "players");
 
-  dynamic_entity_array enemies = init_entity_array();;
-  deserialize_entities(&enemies, "enemies");
+  dynamic_entity_array enemy_types = init_entity_array();;
+  deserialize_entities(&enemy_types, "enemies");
 
   entity_t placeing_player = init_entity();
 
@@ -138,7 +135,6 @@ int main()
   int spawned_enemies = 0;
   //--------------------------------------------------------------------------------------
 
-  printf("%d\n", enemies.data[0].texture_index);
 
   while (!WindowShouldClose())
   {
@@ -160,9 +156,9 @@ int main()
         {
           case STATE_BUY:
           {
-            for (int i = 0; i < players.count; i++)
+            for (int i = 0; i < player_types.count; i++)
             {
-              entity_t player = players.data[i];
+              entity_t player = player_types.data[i];
               Rectangle button_bounds = {160 + i * TILE_SIZE, screen_height - TILE_SIZE, TILE_SIZE, TILE_SIZE};
 
               if (CheckCollisionPointRec(GetMousePosition(), button_bounds))
@@ -186,10 +182,9 @@ int main()
                 // Create a new player
                 entity_t player = init_entity();
                 player.position = (Vector2){tile_x * TILE_SIZE, tile_y * TILE_SIZE};
-                player.interval = init_time_interval(game.shooting_speed);
+                player.type = placeing_player.type;
                 player.radius = placeing_player.radius;
-                player.damage = placeing_player.damage;
-                player.texture_index = placeing_player.texture_index;
+                player.interval = placeing_player.interval;
                 push(&game.players, player);
 
                 state = STATE_BUY;
@@ -220,9 +215,8 @@ int main()
       entity_t enemy = init_entity();
       enemy.position = (Vector2){level.enemy_starting_tile.x * TILE_SIZE, level.enemy_starting_tile.y * TILE_SIZE};
       enemy.direction = level.enemy_starting_direction;
-      enemy.speed = enemies.data[game.enemy_type].speed;
-      enemy.hp = enemies.data[game.enemy_type].hp;
-      enemy.texture_index = enemies.data[game.enemy_type].texture_index;
+      enemy.speed = enemy_types.data[game.enemy_type].speed;
+      enemy.type = enemy_types.data[game.enemy_type].type;
       push(&game.enemies, enemy);
 
       spawned_enemies++;
@@ -257,7 +251,7 @@ int main()
           }
         }
         
-        float lowest_enemy_hp = FLT_MAX;
+        float lowest_enemy_type = FLT_MAX;
         Vector2 lowest_enemy_direction = {0, 0};
 
         for (int j = 0; j < enemies_in_radius.count; j++)
@@ -269,9 +263,9 @@ int main()
           float distance_to_enemy = Vector2Distance(player_center, enemy_center);
 
           // Check if this enemy is lower than the previously lowest enemy
-          if (enemy->hp < lowest_enemy_hp)
+          if (enemy->type < lowest_enemy_type)
           {
-            lowest_enemy_hp = enemy->hp;
+            lowest_enemy_type = enemy->type;
              // Calculate the direction vector from the player to the enemy
             lowest_enemy_direction = Vector2Normalize(Vector2Subtract(enemy_center, player_center));
           }
@@ -288,8 +282,7 @@ int main()
           bullet.direction = lowest_enemy_direction;
           bullet.speed = 2000.0f;
           bullet.rotation = rotation;
-          bullet.texture_index = player->texture_index;
-          bullet.damage = player->damage;
+          bullet.type = player->type;
           push(&game.bullets, bullet);
         }
       }
@@ -355,10 +348,11 @@ int main()
           if (CheckCollisionCircles(enemy_center, TILE_SIZE / 4, bullet_center, TILE_SIZE / 4))
           {
             // Lower enamy hp
-            enemy->hp -= bullet->damage;
+            enemy->type--;
+            enemy->speed = enemy_types.data[enemy->type].speed;
 
             // If enemy gets killed
-            if (enemy->hp <= 0)
+            if (enemy->type < 0)
             {
               game.killed_enemy_count += 1; // Add one to the killed enemy counter
               game.bank += 25; // Add to bank
@@ -373,7 +367,7 @@ int main()
 
       // Check if the bullet is out of bounds and remove it
       if (bullet->position.x >= screen_width ||
-        bullet->position.x <= 0 ||
+        bullet->position.x <= 0 - TILE_SIZE ||
         bullet->position.y >= screen_height ||
         bullet->position.y <= 0)
       {
@@ -408,7 +402,7 @@ int main()
         entity_t *player = &game.players.data[i];
 
         DrawTexturePro(entity_texture,
-          (Rectangle){80, player->texture_index * TILE_SIZE, TILE_SIZE, TILE_SIZE},
+          (Rectangle){80, player->type * TILE_SIZE, TILE_SIZE, TILE_SIZE},
           (Rectangle){player->position.x + TILE_SIZE / 2, player->position.y + TILE_SIZE / 2, TILE_SIZE, TILE_SIZE},
           (Vector2){TILE_SIZE / 2, TILE_SIZE / 2},
           player->rotation,
@@ -424,12 +418,9 @@ int main()
       for (int i = 0; i < game.enemies.count; i++)
       {
         entity_t *enemy = &game.enemies.data[i];
-
-        const char* hp_text = TextFormat("%d", enemy->hp);
-        DrawText(hp_text, (enemy->position.x + (TILE_SIZE / 2) - (MeasureText(hp_text, 20) / 2)), (enemy->position.y - 20), 20, WHITE);
         
         DrawTexturePro(entity_texture,
-          (Rectangle){TILE_SIZE * 5, enemy->texture_index * TILE_SIZE, TILE_SIZE, TILE_SIZE},
+          (Rectangle){TILE_SIZE * 5, enemy->type * TILE_SIZE, TILE_SIZE, TILE_SIZE},
           (Rectangle){enemy->position.x + TILE_SIZE / 2, enemy->position.y + TILE_SIZE / 2, TILE_SIZE, TILE_SIZE},
           (Vector2){TILE_SIZE / 2, TILE_SIZE / 2},
           0,
@@ -442,7 +433,7 @@ int main()
         entity_t *bullet = &game.bullets.data[i];
 
         DrawTexturePro(entity_texture,
-          (Rectangle){TILE_SIZE * 10, bullet->texture_index * TILE_SIZE, TILE_SIZE, TILE_SIZE},
+          (Rectangle){TILE_SIZE * 10, bullet->type * TILE_SIZE, TILE_SIZE, TILE_SIZE},
           (Rectangle){bullet->position.x + TILE_SIZE / 2, bullet->position.y + TILE_SIZE / 2, TILE_SIZE, TILE_SIZE},
           (Vector2){TILE_SIZE / 2, TILE_SIZE / 2},
           bullet->rotation,
@@ -457,9 +448,9 @@ int main()
         DrawText(TextFormat("Bank: %d", game.bank), 15, screen_height - 65, 22, WHITE);
         DrawText(TextFormat("Hp: %d", game.hp), 15, screen_height - 35, 22, WHITE);
 
-        for (int i = 0; i < players.count; i++)
+        for (int i = 0; i < player_types.count; i++)
         {
-          entity_t *player = &players.data[i];
+          entity_t *player = &player_types.data[i];
 
           DrawTexturePro(entity_texture,
             (Rectangle){0, i * TILE_SIZE, TILE_SIZE, TILE_SIZE},
@@ -488,7 +479,7 @@ int main()
           bool can_place = is_position_empty(&game.players, tile_x, tile_y) && can_place_on_tile[level.tiles[tile_y][tile_x]];
 
           DrawTexturePro(entity_texture,
-            (Rectangle){80, placeing_player.texture_index * TILE_SIZE, TILE_SIZE, TILE_SIZE},
+            (Rectangle){80, placeing_player.type * TILE_SIZE, TILE_SIZE, TILE_SIZE},
             (Rectangle){tile_x * TILE_SIZE + TILE_SIZE / 2, tile_y * TILE_SIZE + TILE_SIZE / 2, TILE_SIZE, TILE_SIZE},
             (Vector2){TILE_SIZE / 2, TILE_SIZE / 2},
             0,

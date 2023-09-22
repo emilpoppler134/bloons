@@ -15,10 +15,8 @@ typedef struct entity_t
   Vector2 direction;
   float speed;
   float rotation;
-  int hp;
+  int type;
   int radius;
-  int texture_index;
-  int damage;
   int cost;
   time_interval_t interval;
 } entity_t;
@@ -38,10 +36,8 @@ entity_t init_entity()
     .direction = (Vector2){0, 0},
     .speed = 0,
     .rotation = 0,
-    .hp = 0,
+    .type = 0,
     .radius = 0,
-    .texture_index = 0,
-    .damage = 0,
     .cost = 0,
     .interval = (time_interval_t){
       .interval = 0,
@@ -121,7 +117,7 @@ void deserialize_entities(dynamic_entity_array *entities, char* entity_type)
   {
     if (entry->d_type == DT_REG) // Check if it's a regular file
     {
-      entity_t player;
+      entity_t entity;
 
       FILE *file = fopen(TextFormat("./resources/%s/%s", entity_type, entry->d_name), "rb");
       if (!file)
@@ -130,14 +126,14 @@ void deserialize_entities(dynamic_entity_array *entities, char* entity_type)
         exit(1);
       }
 
-      if (fread(&player, sizeof(entity_t), 1, file) != 1)
+      if (fread(&entity, sizeof(entity_t), 1, file) != 1)
       {
         perror("Failed to read level data");
         fclose(file);
         exit(1);
       }
 
-      push(entities, player);
+      push(entities, entity);
 
       fclose(file);
     }

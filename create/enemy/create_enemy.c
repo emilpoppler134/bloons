@@ -27,9 +27,8 @@ void serialize_enemy(const char *path, entity_t *enemy)
 
 void initialize_enemy(entity_t *enemy)
 {
-  enemy->texture_index = 3;
-	enemy->speed = 300.0f;
-  enemy->hp = 250;
+  enemy->type = 3;
+	enemy->speed = 400.0f;
 }
 
 int main()

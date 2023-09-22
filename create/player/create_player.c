@@ -27,10 +27,10 @@ void serialize_player(const char *path, entity_t *player)
 
 void initialize_player(entity_t *player)
 {
-  player->texture_index = 1;
+  player->type = 1;
   player->cost = 200;
-  player->damage = 100;
 	player->radius = 300;
+	player->interval = init_time_interval(0.5);
 }
 
 int main()
