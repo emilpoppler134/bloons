@@ -1,4 +1,5 @@
 #include <stdio.h>
+#include <stdlib.h>
 #include <stdbool.h>
 #include <float.h>
 
@@ -7,7 +8,7 @@
 
 #include "tiles.h"
 #include "entity.h"
-#include "time_interval.h"
+#include "interval.h"
 
 #define TILE_SIZE 80
 #define COLS 15
