@@ -6,6 +6,7 @@
 #include "raylib.h"
 #include "raymath.h"
 
+#include "server.h"
 #include "tiles.h"
 #include "entity.h"
 #include "interval.h"
@@ -18,11 +19,22 @@
 //--------------------------------------------------------------------------------------
 typedef enum state_e
 {
+  STATE_START_SCREEN,
+  STATE_GAME_OVER,
+  STATE_PAUSED,
   STATE_BUY,
   STATE_PLACE,
   STATE_REMOVE,
   STATE_NUM
 } state_e;
+
+typedef enum game_mode_e
+{
+  MODE_NULL,
+  MODE_SINGLEPLAYER,
+  MODE_MULTIPLAYER,
+  MODE_NUM
+} game_mode_e;
 
 typedef struct level_t
 { 
@@ -97,7 +109,8 @@ int main()
 
   InitWindow(screen_width, screen_height, "Bloons TD");
 
-  state_e state = STATE_BUY;
+  state_e state = STATE_START_SCREEN;
+  game_mode_e game_mode = MODE_NULL;
 
   level_t level;
   deserialize_level(&level); // deserialize level
@@ -160,6 +173,25 @@ int main()
       {
         switch (state)
         {
+          case STATE_START_SCREEN:
+          {
+            Rectangle singleplayer_button_bounds = {screen_width / 2 - 190, screen_height / 2 - 64, 380, 80};
+
+            if (CheckCollisionPointRec(GetMousePosition(), singleplayer_button_bounds))
+            {
+              game_mode = MODE_SINGLEPLAYER;
+              state = STATE_BUY;
+            }
+
+            Rectangle multiplayer_button_bounds = {screen_width / 2 - 190, screen_height / 2 + 64, 380, 80};
+
+            if (CheckCollisionPointRec(GetMousePosition(), multiplayer_button_bounds))
+            {
+              game_mode = MODE_MULTIPLAYER;
+              state = STATE_BUY;
+            }
+          } break;
+
           case STATE_BUY:
           {
             for (int i = 0; i < player_types.count; i++)
@@ -251,24 +283,29 @@ int main()
     //----------------------------------------------------------------------------------
 
     // Enemy spawn loop
-    if (check_time_interval(&enemy_spawn_interval))
+    if (state != STATE_START_SCREEN &&
+        state != STATE_GAME_OVER &&
+        state != STATE_PAUSED)
     {
-      // Create an enemy
-      entity_t enemy = init_entity();
-      enemy.position = (Vector2){level.enemy_starting_tile.x * TILE_SIZE, level.enemy_starting_tile.y * TILE_SIZE};
-      enemy.direction = level.enemy_starting_direction;
-      enemy.speed = enemy_types.data[game.enemy_type].speed;
-      enemy.type = enemy_types.data[game.enemy_type].type;
-      push(&game.enemies, enemy);
-
-      spawned_enemies++;
-      
-      if (spawned_enemies % 20 == 0)
+      if (check_time_interval(&enemy_spawn_interval))
       {
-        game.enemy_type++;
+        // Create an enemy
+        entity_t enemy = init_entity();
+        enemy.position = (Vector2){level.enemy_starting_tile.x * TILE_SIZE, level.enemy_starting_tile.y * TILE_SIZE};
+        enemy.direction = level.enemy_starting_direction;
+        enemy.speed = enemy_types.data[game.enemy_type].speed;
+        enemy.type = enemy_types.data[game.enemy_type].type;
+        push(&game.enemies, enemy);
+
+        spawned_enemies++;
+        
+        if (spawned_enemies % 20 == 0)
+        {
+          game.enemy_type++;
+        }
       }
     }
-
+    
     // Player loop
     for (int i = 0; i < game.players.count; i++)
     {
@@ -558,6 +595,27 @@ int main()
         {
           DrawRectangle(tile_x * TILE_SIZE, tile_y * TILE_SIZE, TILE_SIZE, TILE_SIZE, (Color){255, 255, 255, 25});
         }
+      }
+
+      if (state == STATE_START_SCREEN)
+      {
+        DrawRectangle(0, 0, screen_width, screen_height, (Color){0, 0, 0, 100});
+
+        DrawRectangle(screen_width / 2 - 190, screen_height / 2 - 64, 380, 80, (Color){255, 255, 255, 200});
+        DrawText("Singleplayer", screen_width / 2 - MeasureText("Singleplayer", 28) / 2, screen_height / 2 - 64 + 22, 28, BLACK);
+
+        DrawRectangle(screen_width / 2 - 190, screen_height / 2 + 64, 380, 80, (Color){255, 255, 255, 200});
+        DrawText("Multiplayer", screen_width / 2 - MeasureText("Multiplayer", 28) / 2, screen_height / 2 + 64 + 22, 28, BLACK);
+      }
+
+      if (state == STATE_GAME_OVER)
+      {
+        
+      }
+
+      if (state == STATE_PAUSED)
+      {
+        
       }
 
     EndDrawing();
