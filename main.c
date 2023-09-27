@@ -124,6 +124,11 @@ int main()
   entity_texture.width = TILE_SIZE * 15;
   entity_texture.height = TILE_SIZE * 15;
 
+  // Loading the players texture
+  Texture2D shovel_texture = LoadTexture("./resources/shovel.png");
+  shovel_texture.width = 612;
+  shovel_texture.height = 612;
+
   dynamic_entity_array player_types = init_entity_array();
   deserialize_entities(&player_types, "players");
 
@@ -164,13 +169,15 @@ int main()
 
               if (CheckCollisionPointRec(GetMousePosition(), button_bounds))
               {
-                if (game.bank >= player.cost)
-                {
-                  placeing_player = player;
-                  game.bank -= player.cost;
-                  state = STATE_PLACE;
-                }
+                placeing_player = player;
+                state = STATE_PLACE;
               }
+            }
+
+            Rectangle shovel_button_bounds = {screen_width - TILE_SIZE, screen_height - TILE_SIZE, TILE_SIZE, TILE_SIZE};
+            if (CheckCollisionPointRec(GetMousePosition(), shovel_button_bounds))
+            {
+              state = STATE_REMOVE;
             }
           } break;
 
@@ -180,27 +187,57 @@ int main()
             {
               if (can_place_on_tile[level.tiles[tile_y][tile_x]])
               {
-                // Create a new player
-                entity_t player = init_entity();
-                player.position = (Vector2){tile_x * TILE_SIZE, tile_y * TILE_SIZE};
-                player.type = placeing_player.type;
-                player.radius = placeing_player.radius;
-                player.interval = placeing_player.interval;
-                push(&game.players, player);
+                if (game.bank >= placeing_player.cost)
+                {
+                  game.bank -= placeing_player.cost;
 
-                state = STATE_BUY;
+                  // Create a new player
+                  entity_t player = init_entity();
+                  player.position = (Vector2){tile_x * TILE_SIZE, tile_y * TILE_SIZE};
+                  player.type = placeing_player.type;
+                  player.radius = placeing_player.radius;
+                  player.interval = placeing_player.interval;
+                  push(&game.players, player);
+
+                  state = STATE_BUY;
+                }
               }
             }
           } break;
 
           case STATE_REMOVE:
           {
-            // Remove
+            if (!is_position_empty(&game.players, tile_x, tile_y))
+            {
+              for (int i = 0; i < game.players.count; i++)
+              {
+                entity_t *player = &game.players.data[i];
+
+                int player_tile_x = player->position.x / TILE_SIZE;
+                int player_tile_y = player->position.y / TILE_SIZE;
+
+                if (tile_x == player_tile_x && tile_y == player_tile_y)
+                {
+                  remove_at(&game.players, i);
+                }
+              }
+
+              state = STATE_BUY;
+            }
           } break;
 
           default:
           break;
         }
+      }
+    }
+
+    if (IsKeyPressed(KEY_TAB))
+    {
+      if (state == STATE_PLACE || state == STATE_REMOVE)
+      {
+        placeing_player = init_entity();
+        state = STATE_BUY;
       }
     }
     //----------------------------------------------------------------------------------
@@ -463,10 +500,19 @@ int main()
           const char* cost_text = TextFormat("%d", player->cost);
           DrawText(cost_text, (160 + i * TILE_SIZE + (TILE_SIZE / 2) - (MeasureText(cost_text, 20) / 2)), (screen_height - 20), 20, WHITE);
         }
+
+        DrawTexturePro(shovel_texture,
+        (Rectangle){0, 0, shovel_texture.width, shovel_texture.height},
+        (Rectangle){screen_width - TILE_SIZE / 2, screen_height - TILE_SIZE / 2, TILE_SIZE, TILE_SIZE},
+        (Vector2){TILE_SIZE / 2, TILE_SIZE / 2},
+        0,
+        WHITE);
       }
 
       if (state == STATE_PLACE)
       {
+        DrawText("Press TAB to cancel", 8, 36, 22, WHITE);
+
         int mouse_x = GetMouseX();
         int mouse_y = GetMouseY();
 
@@ -490,6 +536,23 @@ int main()
             tile_y * TILE_SIZE + TILE_SIZE / 2,
             placeing_player.radius,
             (Color){255, 255, 255, 25});
+        }
+      }
+
+      if (state == STATE_REMOVE)
+      {
+        DrawText("Press TAB to cancel", 8, 36, 22, WHITE);
+
+        int mouse_x = GetMouseX();
+        int mouse_y = GetMouseY();
+
+        // Calculate the tile coordinates based on mouse position
+        int tile_x = mouse_x / TILE_SIZE;
+        int tile_y = mouse_y / TILE_SIZE;
+
+        if (tile_x >= 0 && tile_x < COLS && tile_y >= 0 && tile_y < ROWS)
+        {
+          DrawRectangle(tile_x * TILE_SIZE, tile_y * TILE_SIZE, TILE_SIZE, TILE_SIZE, (Color){255, 255, 255, 25});
         }
       }
 
