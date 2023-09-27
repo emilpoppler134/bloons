@@ -4,7 +4,7 @@
 #include "../../entity.h"
 
 #define TILE_SIZE 80
-#define ENEMY_FILE_PATH "../../resources/enemies/enemy_4"
+#define ENEMY_FILE_PATH "../../resources/enemies/enemy_7"
 
 void serialize_enemy(const char *path, entity_t *enemy)
 {
@@ -27,8 +27,8 @@ void serialize_enemy(const char *path, entity_t *enemy)
 
 void initialize_enemy(entity_t *enemy)
 {
-  enemy->type = 3;
-	enemy->speed = 400.0f;
+  enemy->type = 6;
+	enemy->speed = 800.0f;
 }
 
 int main()

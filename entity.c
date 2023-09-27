@@ -53,6 +53,7 @@ void remove_at(dynamic_entity_array *arr, int index)
   entity_t* new_arr = (entity_t*)malloc((arr->capacity - 1) * sizeof(entity_t));
   if (!new_arr)
   {
+    exit(1);
     return;
   }
 
@@ -71,6 +72,25 @@ void remove_at(dynamic_entity_array *arr, int index)
   arr->data = new_arr;
   arr->count--;
   arr->capacity--;
+}
+
+// Comparison function for qsort
+int compare(const void* a, const void* b) {
+  const entity_t* entityA = (const entity_t*)a;
+  const entity_t* entityB = (const entity_t*)b;
+
+  // Compare based on the 'type' field
+  return entityA->type - entityB->type;
+}
+
+void sort(dynamic_entity_array* entities) {
+  // Check if there are entities to sort
+  if (entities->count <= 0) {
+    return; // Nothing to sort
+  }
+
+  // Use qsort to sort the entities based on 'type'
+  qsort(entities->data, entities->count, sizeof(entity_t), compare);
 }
 
 // Resources
@@ -113,6 +133,8 @@ void deserialize_entities(dynamic_entity_array *entities, char* entity_type)
       fclose(file);
     }
   }
+
+  sort(entities);
 
   // Close the directory
   closedir(directory);
