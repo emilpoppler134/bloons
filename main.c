@@ -104,7 +104,7 @@ int main()
 
   // Setting the game settings
   game_t game;
-  game.bank = 100;
+  game.bank = 750;
   game.hp = 100;
   game.killed_enemy_count = 0;
   game.enemy_spawn_speed = 3;
@@ -169,8 +169,11 @@ int main()
 
               if (CheckCollisionPointRec(GetMousePosition(), button_bounds))
               {
-                placeing_player = player;
-                state = STATE_PLACE;
+                if (game.bank >= player.cost)
+                {
+                  placeing_player = player;
+                  state = STATE_PLACE;
+                }
               }
             }
 
@@ -219,6 +222,7 @@ int main()
                 if (tile_x == player_tile_x && tile_y == player_tile_y)
                 {
                   remove_at(&game.players, i);
+                  break;
                 }
               }
 
