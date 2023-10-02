@@ -1,7 +1,11 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdbool.h>
+#include <string.h>
 #include <float.h>
+#include <unistd.h>
+#include <pthread.h>
+#include <arpa/inet.h>
 
 #include "raylib.h"
 #include "raymath.h"
@@ -27,14 +31,6 @@ typedef enum state_e
   STATE_REMOVE,
   STATE_NUM
 } state_e;
-
-typedef enum game_mode_e
-{
-  MODE_NULL,
-  MODE_SINGLEPLAYER,
-  MODE_MULTIPLAYER,
-  MODE_NUM
-} game_mode_e;
 
 typedef struct level_t
 { 
@@ -98,19 +94,68 @@ bool is_position_empty(dynamic_entity_array *players, int tile_x, int tile_y)
   return true;
 }
 
+// Define a mutex to protect the shared data structure
+pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
+package_t shared_package;
+
+bool shouldRunCode = false;
+
+void *receive_thread(void *arg)
+{
+  int client_socket = *((int *)arg);
+
+  while (1)
+  {
+    package_t package;
+    size_t size = sizeof(package_t);
+    unsigned char buffer[size];
+
+    ssize_t bytes_received = recv(client_socket, buffer, sizeof(buffer), 0);
+
+    if (bytes_received <= 0)
+    {
+      if (bytes_received == 0)
+      {
+        printf("Client disconnected.\n");
+      }
+      else
+      {
+        perror("Error in recv");
+      }
+
+      pthread_exit(NULL);
+    }
+
+    memcpy(&package, buffer, size);
+
+    // Lock the mutex before updating the shared data
+    pthread_mutex_lock(&mutex);
+    shared_package = package;
+
+    // Set the flag to indicate that the code should run
+    shouldRunCode = true;
+
+    pthread_mutex_unlock(&mutex);
+  }
+
+  return NULL;
+}
+
 // Main
 //--------------------------------------------------------------------------------------
 int main()
 {
   // Initialization
   //--------------------------------------------------------------------------------------
+  game_mode_e game_mode = init_game();
+  socket_t socket = init_server();
+
   const int screen_width = 1200;
   const int screen_height = 800;
 
   InitWindow(screen_width, screen_height, "Bloons TD");
 
   state_e state = STATE_START_SCREEN;
-  game_mode_e game_mode = MODE_NULL;
 
   level_t level;
   deserialize_level(&level); // deserialize level
@@ -152,6 +197,18 @@ int main()
 
   time_interval_t enemy_spawn_interval = init_time_interval(game.enemy_spawn_speed);
   int spawned_enemies = 0;
+
+  pthread_t receive_tid;
+
+  if (game_mode == MODE_MULTIPLAYER)
+  {
+    // Create the receive thread
+    if (pthread_create(&receive_tid, NULL, receive_thread, &socket.client_socket) != 0)
+    {
+      perror("Error creating receive thread");
+      exit(1);
+    }
+  }
   //--------------------------------------------------------------------------------------
 
 
@@ -175,19 +232,19 @@ int main()
         {
           case STATE_START_SCREEN:
           {
-            Rectangle singleplayer_button_bounds = {screen_width / 2 - 190, screen_height / 2 - 64, 380, 80};
+            Rectangle button_bounds = {screen_width / 2 - 190, screen_height / 2 - 40, 380, 80};
 
-            if (CheckCollisionPointRec(GetMousePosition(), singleplayer_button_bounds))
+            if (CheckCollisionPointRec(GetMousePosition(), button_bounds))
             {
-              game_mode = MODE_SINGLEPLAYER;
-              state = STATE_BUY;
-            }
+              if (game_mode == MODE_MULTIPLAYER)
+              {
+                package_t package = init_package();
+                package.action = ACTION_START_GAME;
 
-            Rectangle multiplayer_button_bounds = {screen_width / 2 - 190, screen_height / 2 + 64, 380, 80};
-
-            if (CheckCollisionPointRec(GetMousePosition(), multiplayer_button_bounds))
-            {
-              game_mode = MODE_MULTIPLAYER;
+                size_t size = sizeof(package_t);
+                send(socket.client_socket, &package, size, 0);
+              }
+                  
               state = STATE_BUY;
             }
           } break;
@@ -231,8 +288,19 @@ int main()
                   player.position = (Vector2){tile_x * TILE_SIZE, tile_y * TILE_SIZE};
                   player.type = placeing_player.type;
                   player.radius = placeing_player.radius;
+                  player.cost = placeing_player.cost;
                   player.interval = placeing_player.interval;
                   push(&game.players, player);
+
+                  if (game_mode == MODE_MULTIPLAYER)
+                  {
+                    package_t package = init_package();
+                    package.action = ACTION_PLACE;
+                    package.entity = player;
+
+                    size_t size = sizeof(package_t);
+                    send(socket.client_socket, &package, size, 0);
+                  }
 
                   state = STATE_BUY;
                 }
@@ -253,6 +321,18 @@ int main()
 
                 if (tile_x == player_tile_x && tile_y == player_tile_y)
                 {
+                  game.bank += player->cost / 2;
+
+                  if (game_mode == MODE_MULTIPLAYER)
+                  {
+                    package_t package = init_package();
+                    package.action = ACTION_REMOVE;
+                    package.index = i;
+
+                    size_t size = sizeof(package_t);
+                    send(socket.client_socket, &package, size, 0);
+                  }
+
                   remove_at(&game.players, i);
                   break;
                 }
@@ -281,6 +361,38 @@ int main()
 
     // Update
     //----------------------------------------------------------------------------------
+    if (shouldRunCode)
+    {
+      // Check for received packages in the main thread
+      pthread_mutex_lock(&mutex);
+      package_t received_package = shared_package;
+      pthread_mutex_unlock(&mutex);
+
+      // Handle the received package in the main thread
+      switch (received_package.action)
+      {
+        case ACTION_PLACE:
+        {
+          entity_t player = received_package.entity;
+          push(&game.players, player);
+        } break;
+
+        case ACTION_REMOVE:
+        {
+          remove_at(&game.players, received_package.index);
+        } break;
+
+        case ACTION_START_GAME:
+        {
+          state = STATE_BUY;
+        } break;
+
+        default:
+            break;
+      }
+
+      shouldRunCode = false;
+    }
 
     // Enemy spawn loop
     if (state != STATE_START_SCREEN &&
@@ -601,11 +713,8 @@ int main()
       {
         DrawRectangle(0, 0, screen_width, screen_height, (Color){0, 0, 0, 100});
 
-        DrawRectangle(screen_width / 2 - 190, screen_height / 2 - 64, 380, 80, (Color){255, 255, 255, 200});
-        DrawText("Singleplayer", screen_width / 2 - MeasureText("Singleplayer", 28) / 2, screen_height / 2 - 64 + 22, 28, BLACK);
-
-        DrawRectangle(screen_width / 2 - 190, screen_height / 2 + 64, 380, 80, (Color){255, 255, 255, 200});
-        DrawText("Multiplayer", screen_width / 2 - MeasureText("Multiplayer", 28) / 2, screen_height / 2 + 64 + 22, 28, BLACK);
+        DrawRectangle(screen_width / 2 - 190, screen_height / 2 - 40, 380, 80, (Color){255, 255, 255, 200});
+        DrawText("Play", screen_width / 2 - MeasureText("Play", 28) / 2, screen_height / 2 - 40 + 22, 28, BLACK);
       }
 
       if (state == STATE_GAME_OVER)
@@ -620,6 +729,17 @@ int main()
 
     EndDrawing();
     //----------------------------------------------------------------------------------
+
+    if (game_mode == MODE_MULTIPLAYER)
+    {
+      usleep(10000);
+    }
+  }
+
+  if (game_mode == MODE_MULTIPLAYER)
+  { 
+    close(socket.server_socket);
+    close(socket.client_socket);
   }
 
   UnloadTexture(tileset);

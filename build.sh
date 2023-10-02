@@ -1,2 +1,2 @@
 #!/bin/bash
-cc *.c `pkg-config --libs --cflags raylib` -o Game
+cc main.c entity.c server.c interval.c `pkg-config --libs --cflags raylib` -lpthread -o Game
