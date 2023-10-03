@@ -32,7 +32,6 @@ typedef enum state_e
 {
   STATE_START_SCREEN,
   STATE_GAME_OVER,
-  STATE_PAUSED,
   STATE_BUY,
   STATE_PLACE,
   STATE_REMOVE,
@@ -428,9 +427,7 @@ int main()
     }
 
     // Enemy spawn loop
-    if (state != STATE_START_SCREEN &&
-        state != STATE_GAME_OVER &&
-        state != STATE_PAUSED)
+    if (state != STATE_START_SCREEN && state != STATE_GAME_OVER)
     {
       if (check_time_interval(&enemy_spawn_interval))
       {
@@ -538,6 +535,11 @@ int main()
       {
         game.hp -= 10;
         remove_at(&game.enemies, i);
+
+        if (game.hp <= 0)
+        {
+          state = STATE_GAME_OVER;
+        }
         break;
       }
     }
@@ -752,12 +754,8 @@ int main()
 
       if (state == STATE_GAME_OVER)
       {
-        
-      }
-
-      if (state == STATE_PAUSED)
-      {
-        
+        DrawRectangle(0, 0, screen_width, screen_height, (Color){0, 0, 0, 100});
+        DrawText("GAME OVER", screen_width / 2 - MeasureText("GAME OVER", 42) / 2, screen_height / 2 - 40 + 22, 42, BLACK);
       }
 
     EndDrawing();
