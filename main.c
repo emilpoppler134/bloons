@@ -426,9 +426,10 @@ int main()
       should_run_code = false;
     }
 
-    // Enemy spawn loop
+    
     if (state != STATE_START_SCREEN && state != STATE_GAME_OVER)
     {
+      // Enemy spawn loop
       if (check_time_interval(&enemy_spawn_interval))
       {
         // Create an enemy
@@ -436,7 +437,7 @@ int main()
         enemy.position = (Vector2){level.enemy_starting_tile.x * TILE_SIZE, level.enemy_starting_tile.y * TILE_SIZE};
         enemy.direction = level.enemy_starting_direction;
         enemy.speed = enemy_types.data[game.enemy_type].speed;
-        enemy.type = enemy_types.data[game.enemy_type].type;
+        enemy.type = 6;
         push(&game.enemies, enemy);
 
         spawned_enemies++;
@@ -446,158 +447,158 @@ int main()
           game.enemy_type++;
         }
       }
-    }
-    
-    // Player loop
-    for (int i = 0; i < game.players.count; i++)
-    {
-      entity_t *player = &game.players.data[i];
-      Vector2 player_center = {player->position.x + TILE_SIZE / 2, player->position.y + TILE_SIZE / 2};
-      
-      // Player shooting loop
-      if (check_time_interval(&player->interval))
-      {
-        // Create an array with all of the enemies that is in the players radius
-        dynamic_entity_array enemies_in_radius = init_entity_array();
 
+      // Player loop
+      for (int i = 0; i < game.players.count; i++)
+      {
+        entity_t *player = &game.players.data[i];
+        Vector2 player_center = {player->position.x + TILE_SIZE / 2, player->position.y + TILE_SIZE / 2};
+        
+        // Player shooting loop
+        if (check_time_interval(&player->interval))
+        {
+          // Create an array with all of the enemies that is in the players radius
+          dynamic_entity_array enemies_in_radius = init_entity_array();
+
+          for (int j = 0; j < game.enemies.count; j++)
+          {
+            entity_t enemy = game.enemies.data[j];
+            Rectangle enemy_bounds = {enemy.position.x, enemy.position.y, TILE_SIZE, TILE_SIZE};
+
+            // If enemy is inside player radius
+            if (CheckCollisionCircleRec(player_center, player->radius, enemy_bounds))
+            {
+              push(&enemies_in_radius, enemy); // Push to the dynamic array
+            }
+          }
+          
+          float lowest_enemy_type = FLT_MAX;
+          Vector2 lowest_enemy_direction = {0, 0};
+
+          for (int j = 0; j < enemies_in_radius.count; j++)
+          {
+            entity_t *enemy = &enemies_in_radius.data[j];
+            Vector2 enemy_center = {enemy->position.x + TILE_SIZE / 2, enemy->position.y + TILE_SIZE / 2};
+
+            // Calculate the distance between the player and the enemy
+            float distance_to_enemy = Vector2Distance(player_center, enemy_center);
+
+            // Check if this enemy is lower than the previously lowest enemy
+            if (enemy->type < lowest_enemy_type)
+            {
+              lowest_enemy_type = enemy->type;
+              // Calculate the direction vector from the player to the enemy
+              lowest_enemy_direction = Vector2Normalize(Vector2Subtract(enemy_center, player_center));
+            }
+          }
+
+          if (enemies_in_radius.count > 0) {
+            float rotation_decimal = (float)(atan2(lowest_enemy_direction.y, lowest_enemy_direction.x) / (2 * PI));
+            float rotation = rotation_decimal * 360;
+            player->rotation = rotation + 90;
+
+            // Create a bullet and set the direction and speed
+            entity_t bullet = init_entity();
+            bullet.position = (Vector2){player->position.x, player->position.y};
+            bullet.direction = lowest_enemy_direction;
+            bullet.speed = 2000.0f;
+            bullet.rotation = rotation;
+            bullet.type = player->type;
+            push(&game.bullets, bullet);
+          }
+        }
+      }
+
+      // Enemy loop
+      for (int i = 0; i < game.enemies.count; i++)
+      {
+        entity_t *enemy = &game.enemies.data[i];
+
+        // Calculate the distance to move based on the elapsed time
+        float delta_time = GetFrameTime();
+        float distance_to_move = enemy->speed * delta_time;
+        
+        // Update enamy position based on direction and speed
+        enemy->position.x += enemy->direction.x * distance_to_move;
+        enemy->position.y += enemy->direction.y * distance_to_move;
+
+        int tile_x = (int)enemy->position.x / TILE_SIZE;
+        int tile_y = (int)enemy->position.y / TILE_SIZE;
+
+        if ((int)enemy->position.y % TILE_SIZE == 0) {
+          direction_e direction = level.path[tile_y][tile_x];
+          enemy->direction = directions[direction];
+        }
+
+        // Check if the enemy is out of bounds and remove it
+        if (enemy->position.x >= screen_width)
+        {
+          game.hp -= 10;
+          remove_at(&game.enemies, i);
+
+          if (game.hp <= 0)
+          {
+            state = STATE_GAME_OVER;
+          }
+          break;
+        }
+      }
+      
+      // Bullet loop
+      for (int i = 0; i < game.bullets.count; i++)
+      {
+        entity_t *bullet = &game.bullets.data[i];
+
+        float delta_time = GetFrameTime();
+        float distance_to_move = bullet->speed * delta_time;
+        
+        // Update bullet position based on direction and speed
+        bullet->position.x += bullet->direction.x * distance_to_move;
+        bullet->position.y += bullet->direction.y * distance_to_move;
+
+        // Iterate through enemies to check for hits
         for (int j = 0; j < game.enemies.count; j++)
         {
-          entity_t enemy = game.enemies.data[j];
-          Rectangle enemy_bounds = {enemy.position.x, enemy.position.y, TILE_SIZE, TILE_SIZE};
+          entity_t *enemy = &game.enemies.data[j];
 
-          // If enemy is inside player radius
-          if (CheckCollisionCircleRec(player_center, player->radius, enemy_bounds))
+          // Calculate the bounding boxes of the bullet and enemy
+          Rectangle bullet_bounds = {bullet->position.x, bullet->position.y, TILE_SIZE, TILE_SIZE};
+          Rectangle enemy_bounds = {enemy->position.x, enemy->position.y, TILE_SIZE, TILE_SIZE};
+
+          // Check if the bullet's bounding box overlaps with the enemy's bounding box
+          if (CheckCollisionRecs(bullet_bounds, enemy_bounds))
           {
-            push(&enemies_in_radius, enemy); // Push to the dynamic array
-          }
-        }
-        
-        float lowest_enemy_type = FLT_MAX;
-        Vector2 lowest_enemy_direction = {0, 0};
+            Vector2 enemy_center = {enemy->position.x + TILE_SIZE / 2, enemy->position.y + TILE_SIZE / 2};
+            Vector2 bullet_center = {bullet->position.x + TILE_SIZE / 2, bullet->position.y + TILE_SIZE / 2};
 
-        for (int j = 0; j < enemies_in_radius.count; j++)
-        {
-          entity_t *enemy = &enemies_in_radius.data[j];
-          Vector2 enemy_center = {enemy->position.x + TILE_SIZE / 2, enemy->position.y + TILE_SIZE / 2};
-
-          // Calculate the distance between the player and the enemy
-          float distance_to_enemy = Vector2Distance(player_center, enemy_center);
-
-          // Check if this enemy is lower than the previously lowest enemy
-          if (enemy->type < lowest_enemy_type)
-          {
-            lowest_enemy_type = enemy->type;
-             // Calculate the direction vector from the player to the enemy
-            lowest_enemy_direction = Vector2Normalize(Vector2Subtract(enemy_center, player_center));
-          }
-        }
-
-        if (enemies_in_radius.count > 0) {
-          float rotation_decimal = (float)(atan2(lowest_enemy_direction.y, lowest_enemy_direction.x) / (2 * PI));
-          float rotation = rotation_decimal * 360;
-          player->rotation = rotation + 90;
-
-          // Create a bullet and set the direction and speed
-          entity_t bullet = init_entity();
-          bullet.position = (Vector2){player->position.x, player->position.y};
-          bullet.direction = lowest_enemy_direction;
-          bullet.speed = 2000.0f;
-          bullet.rotation = rotation;
-          bullet.type = player->type;
-          push(&game.bullets, bullet);
-        }
-      }
-    }
-
-    // Enemy loop
-    for (int i = 0; i < game.enemies.count; i++)
-    {
-      entity_t *enemy = &game.enemies.data[i];
-
-      // Calculate the distance to move based on the elapsed time
-      float delta_time = GetFrameTime();
-      float distance_to_move = enemy->speed * delta_time;
-      
-      // Update enamy position based on direction and speed
-      enemy->position.x += enemy->direction.x * distance_to_move;
-      enemy->position.y += enemy->direction.y * distance_to_move;
-
-      int tile_x = (int)enemy->position.x / TILE_SIZE;
-      int tile_y = (int)enemy->position.y / TILE_SIZE;
-
-      if ((int)enemy->position.y % TILE_SIZE == 0) {
-        direction_e direction = level.path[tile_y][tile_x];
-        enemy->direction = directions[direction];
-      }
-
-      // Check if the enemy is out of bounds and remove it
-      if (enemy->position.x >= screen_width)
-      {
-        game.hp -= 10;
-        remove_at(&game.enemies, i);
-
-        if (game.hp <= 0)
-        {
-          state = STATE_GAME_OVER;
-        }
-        break;
-      }
-    }
-
-    // Bullet loop
-    for (int i = 0; i < game.bullets.count; i++)
-    {
-      entity_t *bullet = &game.bullets.data[i];
-
-      float delta_time = GetFrameTime();
-      float distance_to_move = bullet->speed * delta_time;
-      
-      // Update bullet position based on direction and speed
-      bullet->position.x += bullet->direction.x * distance_to_move;
-      bullet->position.y += bullet->direction.y * distance_to_move;
-
-      // Iterate through enemies to check for hits
-      for (int j = 0; j < game.enemies.count; j++)
-      {
-        entity_t *enemy = &game.enemies.data[j];
-
-        // Calculate the bounding boxes of the bullet and enemy
-        Rectangle bullet_bounds = {bullet->position.x, bullet->position.y, TILE_SIZE, TILE_SIZE};
-        Rectangle enemy_bounds = {enemy->position.x, enemy->position.y, TILE_SIZE, TILE_SIZE};
-
-        // Check if the bullet's bounding box overlaps with the enemy's bounding box
-        if (CheckCollisionRecs(bullet_bounds, enemy_bounds))
-        {
-          Vector2 enemy_center = {enemy->position.x + TILE_SIZE / 2, enemy->position.y + TILE_SIZE / 2};
-          Vector2 bullet_center = {bullet->position.x + TILE_SIZE / 2, bullet->position.y + TILE_SIZE / 2};
-
-          if (CheckCollisionCircles(enemy_center, TILE_SIZE / 4, bullet_center, TILE_SIZE / 4))
-          {
-            // Lower enamy hp
-            enemy->type--;
-            enemy->speed = enemy_types.data[enemy->type].speed;
-
-            // If enemy gets killed
-            if (enemy->type < 0)
+            if (CheckCollisionCircles(enemy_center, TILE_SIZE / 4, bullet_center, TILE_SIZE / 4))
             {
-              game.killed_enemy_count += 1; // Add one to the killed enemy counter
-              game.bank += 25; // Add to bank
-              remove_at(&game.enemies, j); // Remove the enemy
-            }
+              // Lower enamy hp
+              enemy->type--;
+              enemy->speed = enemy_types.data[enemy->type].speed;
 
-            // Remove the bullet
-            remove_at(&game.bullets, i);
+              // If enemy gets killed
+              if (enemy->type < 0)
+              {
+                game.killed_enemy_count += 1; // Add one to the killed enemy counter
+                game.bank += 25; // Add to bank
+                remove_at(&game.enemies, j); // Remove the enemy
+              }
+
+              // Remove the bullet
+              remove_at(&game.bullets, i);
+            }
           }
         }
-      }
 
-      // Check if the bullet is out of bounds and remove it
-      if (bullet->position.x >= screen_width ||
-        bullet->position.x <= 0 - TILE_SIZE ||
-        bullet->position.y >= screen_height ||
-        bullet->position.y <= 0)
-      {
-        remove_at(&game.bullets, i);
+        // Check if the bullet is out of bounds and remove it
+        if (bullet->position.x >= screen_width ||
+          bullet->position.x <= 0 - TILE_SIZE ||
+          bullet->position.y >= screen_height ||
+          bullet->position.y <= 0)
+        {
+          remove_at(&game.bullets, i);
+        }
       }
     }
     //----------------------------------------------------------------------------------
