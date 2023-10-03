@@ -21,6 +21,13 @@
 
 // Structs
 //--------------------------------------------------------------------------------------
+typedef enum game_mode_e
+{
+  MODE_SINGLEPLAYER,
+  MODE_MULTIPLAYER,
+  MODE_NUM
+} game_mode_e;
+
 typedef enum state_e
 {
   STATE_START_SCREEN,
@@ -98,7 +105,7 @@ bool is_position_empty(dynamic_entity_array *players, int tile_x, int tile_y)
 pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
 package_t shared_package;
 
-bool shouldRunCode = false;
+bool should_run_code = false;
 
 void *receive_thread(void *arg)
 {
@@ -133,7 +140,7 @@ void *receive_thread(void *arg)
     shared_package = package;
 
     // Set the flag to indicate that the code should run
-    shouldRunCode = true;
+    should_run_code = true;
 
     pthread_mutex_unlock(&mutex);
   }
@@ -147,8 +154,33 @@ int main()
 {
   // Initialization
   //--------------------------------------------------------------------------------------
-  game_mode_e game_mode = init_game();
-  socket_t socket = init_server();
+  game_mode_e game_mode = MODE_SINGLEPLAYER;
+
+  int choice;
+  printf("Welcome to my game\n");
+  printf("1. Singleplayer\n");
+  printf("2. Multiplayer\n");
+  printf("Enter your choice: ");
+  scanf("%d", &choice);
+
+  switch (choice) {
+    case 2:
+    {
+      game_mode = MODE_MULTIPLAYER;
+    } break;
+
+    default:
+    {
+      printf("Invalid choice\n");
+    } break;
+  }
+
+  socket_t socket = {.server_socket = 0, .client_socket = 0}; 
+
+  if (game_mode == MODE_MULTIPLAYER)
+  {
+    socket = init_server();
+  }
 
   const int screen_width = 1200;
   const int screen_height = 800;
@@ -361,7 +393,7 @@ int main()
 
     // Update
     //----------------------------------------------------------------------------------
-    if (shouldRunCode)
+    if (should_run_code)
     {
       // Check for received packages in the main thread
       pthread_mutex_lock(&mutex);
@@ -388,10 +420,10 @@ int main()
         } break;
 
         default:
-            break;
+          break;
       }
 
-      shouldRunCode = false;
+      should_run_code = false;
     }
 
     // Enemy spawn loop

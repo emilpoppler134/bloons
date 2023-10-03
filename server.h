@@ -25,15 +25,7 @@ typedef struct socket_t
   int client_socket;
 } socket_t;
 
-typedef enum game_mode_e
-{
-  MODE_SINGLEPLAYER,
-  MODE_MULTIPLAYER,
-  MODE_NUM
-} game_mode_e;
-
 package_t init_package();
-game_mode_e init_game();
 socket_t init_server();
 
 #endif

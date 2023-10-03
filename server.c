@@ -16,33 +16,6 @@ package_t init_package()
 }
 
 
-game_mode_e init_game()
-{
-  game_mode_e game_mode = MODE_SINGLEPLAYER;
-
-  int choice;
-  printf("Welcome to my game\n");
-  printf("1. Singleplayer\n");
-  printf("2. Multiplayer\n");
-  printf("Enter your choice: ");
-  scanf("%d", &choice);
-
-  switch (choice) {
-    case 2:
-    {
-      game_mode = MODE_MULTIPLAYER;
-    } break;
-
-    default:
-    {
-      printf("Invalid choice\n");
-    } break;
-  }
-
-  return game_mode;
-}
-
-
 socket_t init_server()
 {
   int server_socket = 0;
