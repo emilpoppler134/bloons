@@ -437,7 +437,7 @@ int main()
         enemy.position = (Vector2){level.enemy_starting_tile.x * TILE_SIZE, level.enemy_starting_tile.y * TILE_SIZE};
         enemy.direction = level.enemy_starting_direction;
         enemy.speed = enemy_types.data[game.enemy_type].speed;
-        enemy.type = 6;
+        enemy.type = game.enemy_type;
         push(&game.enemies, enemy);
 
         spawned_enemies++;
@@ -543,7 +543,7 @@ int main()
           break;
         }
       }
-      
+
       // Bullet loop
       for (int i = 0; i < game.bullets.count; i++)
       {
