@@ -407,6 +407,7 @@ int main()
         {
           entity_t player = received_package.entity;
           push(&game.players, player);
+          game.bank -= player.cost;
         } break;
 
         case ACTION_REMOVE:
