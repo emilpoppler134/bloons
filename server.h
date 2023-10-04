@@ -26,7 +26,5 @@ typedef struct socket_t
 } socket_t;
 
 package_t init_package();
-void init_create_server();
-void init_join_server(char *ip_address);
 
 #endif

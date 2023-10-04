@@ -14,14 +14,3 @@ package_t init_package()
   };
   return package;
 }
-
-
-void init_create_server()
-{
-  
-}
-
-void init_join_server(char *ip_address)
-{
-  
-}
