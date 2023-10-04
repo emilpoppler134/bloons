@@ -10,6 +10,7 @@
 #include "raylib.h"
 #include "raymath.h"
 
+#include "launcher.h"
 #include "server.h"
 #include "tiles.h"
 #include "entity.h"
@@ -21,13 +22,6 @@
 
 // Structs
 //--------------------------------------------------------------------------------------
-typedef enum game_mode_e
-{
-  MODE_SINGLEPLAYER,
-  MODE_MULTIPLAYER,
-  MODE_NUM
-} game_mode_e;
-
 typedef enum state_e
 {
   STATE_START_SCREEN,
@@ -153,33 +147,15 @@ int main()
 {
   // Initialization
   //--------------------------------------------------------------------------------------
-  game_mode_e game_mode = MODE_SINGLEPLAYER;
+  int client_socket = 0;
+  game_mode_e game_mode = open_launcher(&client_socket);
 
-  int choice;
-  printf("Welcome to my game\n");
-  printf("1. Singleplayer\n");
-  printf("2. Multiplayer\n");
-  printf("Enter your choice: ");
-  scanf("%d", &choice);
-
-  switch (choice) {
-    case 2:
-    {
-      game_mode = MODE_MULTIPLAYER;
-    } break;
-
-    default:
-    {
-      printf("Invalid choice\n");
-    } break;
-  }
-
-  socket_t socket = {.server_socket = 0, .client_socket = 0}; 
-
-  if (game_mode == MODE_MULTIPLAYER)
+  if (game_mode == MODE_NULL) 
   {
-    socket = init_server();
+    return 0;
   }
+
+  printf("%d\n", client_socket);
 
   const int screen_width = 1200;
   const int screen_height = 800;
@@ -234,7 +210,7 @@ int main()
   if (game_mode == MODE_MULTIPLAYER)
   {
     // Create the receive thread
-    if (pthread_create(&receive_tid, NULL, receive_thread, &socket.client_socket) != 0)
+    if (pthread_create(&receive_tid, NULL, receive_thread, &client_socket) != 0)
     {
       perror("Error creating receive thread");
       exit(1);
@@ -273,7 +249,7 @@ int main()
                 package.action = ACTION_START_GAME;
 
                 size_t size = sizeof(package_t);
-                send(socket.client_socket, &package, size, 0);
+                send(client_socket, &package, size, 0);
               }
                   
               state = STATE_BUY;
@@ -330,7 +306,7 @@ int main()
                     package.entity = player;
 
                     size_t size = sizeof(package_t);
-                    send(socket.client_socket, &package, size, 0);
+                    send(client_socket, &package, size, 0);
                   }
 
                   state = STATE_BUY;
@@ -361,7 +337,7 @@ int main()
                     package.index = i;
 
                     size_t size = sizeof(package_t);
-                    send(socket.client_socket, &package, size, 0);
+                    send(client_socket, &package, size, 0);
                   }
 
                   remove_at(&game.players, i);
@@ -770,11 +746,12 @@ int main()
 
   if (game_mode == MODE_MULTIPLAYER)
   { 
-    close(socket.server_socket);
-    close(socket.client_socket);
+    close(client_socket);
   }
 
   UnloadTexture(tileset);
+  UnloadTexture(entity_texture);
+  UnloadTexture(shovel_texture);
 
   free(game.players.data);
   free(game.enemies.data);
