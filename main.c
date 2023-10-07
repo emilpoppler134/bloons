@@ -171,6 +171,7 @@ int main()
   game_t game;
   game.bank = 750;
   game.hp = 100;
+  game.enemy_type = 0;
   game.killed_enemy_count = 0;
   game.enemy_spawn_speed = 3;
 
@@ -197,7 +198,7 @@ int main()
   dynamic_entity_array player_types = init_entity_array();
   deserialize_entities(&player_types, "players");
 
-  dynamic_entity_array enemy_types = init_entity_array();;
+  dynamic_entity_array enemy_types = init_entity_array();
   deserialize_entities(&enemy_types, "enemies");
 
   entity_t placeing_player = init_entity();
