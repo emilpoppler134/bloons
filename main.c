@@ -169,7 +169,7 @@ int main()
 
   // Setting the game settings
   game_t game;
-  game.bank = 750;
+  game.bank = 100;
   game.hp = 100;
   game.enemy_type = 0;
   game.killed_enemy_count = 0;
